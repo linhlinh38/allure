@@ -7,6 +7,7 @@ import http from "http";
 import swaggerUi from "swagger-ui-express";
 import accountRouter from "./routes/account.route";
 import router from "./routes/index.route";
+import { errorHandler } from "./errors/errorHandler";
 
 const app = express();
 
@@ -50,7 +51,7 @@ const StartServer = () => {
 
   //Routes
   app.use("/app", router);
-  //app.use(errorHandler);
+  app.use(errorHandler);
 
   app.use(
     "/docs",
