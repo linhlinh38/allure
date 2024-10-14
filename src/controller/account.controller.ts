@@ -1,6 +1,8 @@
 import { Account } from "../entities/account.entity";
+import { EmailAlreadyExistError } from "../errors/error";
 import { accountService } from "../services/account.service";
 import { NextFunction, Request, Response } from "express";
+import { encryptedPassword } from "../utils/jwt";
 
 async function getAllAccount(req: Request, res: Response) {
   const accounts = await accountService.findAll();
@@ -10,7 +12,7 @@ async function getAllAccount(req: Request, res: Response) {
 }
 
 async function getAccountById(req: Request, res: Response) {
-  const account = await accountService.findById(
+  const account = await accountService.findBy(
     req.params.value,
     req.params.option as unknown as string
   );
@@ -20,6 +22,13 @@ async function getAccountById(req: Request, res: Response) {
 }
 
 async function createAccount(req: Request, res: Response) {
+  const checkEmail = await accountService.findBy(req.body.email, "email");
+  if (checkEmail.length !== 0) {
+    throw new EmailAlreadyExistError("Email already exists!");
+  }
+  if (req.body.password) {
+    req.body.password = await encryptedPassword(req.body.password);
+  }
   const account = await accountService.create(req.body as Account);
   return res
     .status(200)

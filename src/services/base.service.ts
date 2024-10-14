@@ -19,8 +19,8 @@ export abstract class BaseService<T> implements ICRUDService<T> {
     return await this.repository.find();
   }
 
-  async findById(value: any, option: string): Promise<T | null> {
-    return await this.repository.findOneBy({
+  async findBy(value: any, option: string): Promise<T[] | null> {
+    return await this.repository.findBy({
       [option]: value,
     } as FindOptionsWhere<T>);
   }
