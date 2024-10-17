@@ -27,6 +27,31 @@ async function login(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+async function loginGoogle(req: Request, res: Response, next: NextFunction) {
+  const { code } = req.query;
+
+  try {
+    const loginResult = await authService.loginGoogle(code);
+
+    if (loginResult) {
+      res.setHeader("Authorization", `Bearer ${loginResult.token}`);
+      res.status(200).json({
+        message: "Login successful",
+        data: {
+          accessToken: loginResult.token,
+          refreshToken: loginResult.refreshToken,
+        },
+      });
+    } else {
+      res.status(500).json({
+        message: "Server Error",
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function refreshToken(req: Request, res: Response) {
   const refreshToken = req.body.refreshToken;
 
@@ -65,5 +90,6 @@ async function refreshToken(req: Request, res: Response) {
 
 export const authController = {
   login,
+  loginGoogle,
   refreshToken,
 };
