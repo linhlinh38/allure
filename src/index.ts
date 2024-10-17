@@ -50,7 +50,7 @@ const StartServer = () => {
   );
 
   //Routes
-  app.use("/app", router);
+  app.use("/api", router);
   app.use(errorHandler);
 
   app.use(
