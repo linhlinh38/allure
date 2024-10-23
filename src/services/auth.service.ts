@@ -21,7 +21,9 @@ export async function login(email: string, password: string) {
       throw new BadRequestError("Invalid password");
     }
   } else {
-    throw new BadRequestError("User must login by google");
+    throw new BadRequestError(
+      "User must login by another way not using password"
+    );
   }
 
   const payload = { accountId: account.id.toString() };
@@ -41,18 +43,8 @@ export async function loginGoogle(code) {
 
   const account = await repository.findOneBy({ email: userData.email });
   if (!account) {
-    throw new BadRequestError("Invalid email");
+    throw new BadRequestError("Email not exist");
   }
-
-  //   if (account.password.length > 0) {
-  //     const isMatch = await bcrypt.compare(password, account.password);
-  //     if (!isMatch) {
-  //       throw new BadRequestError("Invalid password");
-  //     }
-  //   } else {
-  //     throw new BadRequestError("User must login by google");
-  //   }
-
   const payload = { accountId: account.id.toString() };
 
   const token = jwt.sign(payload, config.SECRET_KEY_FOR_ACCESS_TOKEN, {
