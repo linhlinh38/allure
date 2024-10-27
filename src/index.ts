@@ -1,6 +1,6 @@
 import express from "express";
 import { AppDataSource } from "./dataSource";
-import { config } from "./config/envConfig";
+import { config } from "./configs/envConfig";
 import cors from "cors";
 import Logging from "./utils/Logging";
 import http from "http";
@@ -50,18 +50,18 @@ const StartServer = () => {
   );
 
   //Routes
-  app.use("/api", router);
+  app.use("/allure", router);
   app.use(errorHandler);
 
-  app.use(
-    "/docs",
-    swaggerUi.serve,
-    swaggerUi.setup(undefined, {
-      swaggerOptions: {
-        url: "/swagger.json",
-      },
-    })
-  );
+  // app.use(
+  //   "/docs",
+  //   swaggerUi.serve,
+  //   swaggerUi.setup(undefined, {
+  //     swaggerOptions: {
+  //       url: "/swagger.json",
+  //     },
+  //   })
+  // );
 
   http
     .createServer(app)

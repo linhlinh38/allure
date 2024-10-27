@@ -3,6 +3,6 @@ import accountRouter from "./account.route";
 import authRoute from "./auth.route";
 
 const router = express.Router();
-router.use("/account", accountRouter);
+router.use("/accounts", accountRouter);
 router.use("/auth", authRoute);
 export default router;

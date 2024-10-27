@@ -1,4 +1,4 @@
-import { config } from "../config/envConfig";
+import { config } from "../configs/envConfig";
 import { AppDataSource } from "../dataSource";
 import { Account } from "../entities/account.entity";
 import { BadRequestError } from "../errors/error";

@@ -22,15 +22,16 @@ async function getAccountById(req: Request, res: Response) {
 }
 
 async function createAccount(req: Request, res: Response, next: NextFunction) {
-  const checkEmail = await accountService.findBy(req.body.email, "email");
-  if (checkEmail.length !== 0) {
-    throw new EmailAlreadyExistError("Email already exists!");
-  }
-  if (req.body.password) {
-    req.body.password = await encryptedPassword(req.body.password);
-  }
-  let account;
   try {
+    const checkEmail = await accountService.findBy(req.body.email, "email");
+    if (checkEmail.length !== 0) {
+      throw new EmailAlreadyExistError("Email already exists!");
+    }
+    if (req.body.password) {
+      req.body.password = await encryptedPassword(req.body.password);
+    }
+    let account;
+
     account = await accountService.create(req.body as Account);
     return res
       .status(200)
@@ -56,7 +57,7 @@ async function updateAccount(req: Request, res: Response, next: NextFunction) {
 
 async function deleteAccount(req: Request, res: Response) {
   const account = await accountService.delete(
-    req.params.id as unknown as number
+    req.params.id as unknown as string
   );
   return res
     .status(204)

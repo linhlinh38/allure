@@ -43,7 +43,7 @@ export abstract class BaseService<T> implements ICRUDService<T> {
     } as unknown as FindOptionsWhere<T>);
   }
 
-  async delete(id: number): Promise<boolean> {
+  async delete(id: string): Promise<boolean> {
     const deletedEntity = await this.repository.delete({
       id,
     } as unknown as FindOptionsWhere<T>);

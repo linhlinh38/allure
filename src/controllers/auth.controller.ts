@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import * as authService from "../services/auth.service";
 import jwt, { JwtPayload } from "jsonwebtoken";
-import { config } from "../config/envConfig";
+import { config } from "../configs/envConfig";
 import { accountService } from "../services/account.service";
 
 async function login(req: Request, res: Response, next: NextFunction) {

@@ -1,6 +1,6 @@
 export {};
 import * as googleAuth from "googleapis";
-import { config } from "../config/envConfig";
+import { config } from "../configs/envConfig";
 
 interface GoogleTokens {
   idToken: string;

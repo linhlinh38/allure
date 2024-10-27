@@ -1,6 +1,6 @@
 import jwt, { VerifyOptions, SignOptions } from "jsonwebtoken";
 import bcrypt from "bcrypt";
-import { config } from "../config/envConfig";
+import { config } from "../configs/envConfig";
 
 export function generateRefreshToken(userId: string) {
   const payload = { userId: userId };
