@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const PORT = process.env.PORT as unknown as number | undefined;
+const TZ = process.env.TZ;
 
 //Database
 const DB_HOST = process.env.DB_HOST;
@@ -19,6 +20,11 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const REDIRECT_URI = process.env.REDIRECT_URI;
 
+//Email
+const EMAIL_USERNAME = process.env.EMAIL_USERNAME;
+const EMAIL_PASSWORD = process.env.EMAIL_PASSWORD;
+const FROM_EMAIL = process.env.FROM_EMAIL;
+
 export const config = {
   DB_HOST,
   DB_PORT,
@@ -26,9 +32,13 @@ export const config = {
   DB_PASS,
   DB_NAME,
   PORT,
+  TZ,
   SECRET_KEY_FOR_ACCESS_TOKEN,
   SECRET_KEY_FOR_REFRESH_TOKEN,
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
   REDIRECT_URI,
+  EMAIL_USERNAME,
+  EMAIL_PASSWORD,
+  FROM_EMAIL,
 };
