@@ -182,6 +182,25 @@ async function updateAccount(
   }
 }
 
+async function updateAccountStatusOrChangePassword(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    if (req.body.password) {
+      req.body.password = await encryptedPassword(req.body.password);
+    }
+    const account = await accountService.update(
+      req.params.id,
+      req.body as Account
+    );
+    return res.status(200).send({ message: "Update account success" });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function deleteAccount(req: Request, res: Response, next: NextFunction) {
   try {
     const account = await accountService.delete(
@@ -202,4 +221,5 @@ export const accountController = {
   updateAccount,
   deleteAccount,
   getMyProfile,
+  updateAccountStatusOrChangePassword,
 };
