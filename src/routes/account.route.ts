@@ -18,7 +18,7 @@ accountRouter.post(
 accountRouter.put(
   "update-account/:id",
   validate(AccountUpdateSchema),
-  accountController.updateAccountStatusOrChangePassword
+  accountController.setPassword
 );
 
 accountRouter.use(authentication);
