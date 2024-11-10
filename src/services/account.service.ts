@@ -2,23 +2,49 @@ import { DataSource, QueryRunner, Repository } from "typeorm";
 import { Account } from "../entities/account.entity";
 import { BaseService } from "./base.service";
 import { AppDataSource } from "../dataSource";
-import { EmailAlreadyExistError } from "../errors/error";
+import { BadRequestError, EmailAlreadyExistError } from "../errors/error";
 import { encryptedPassword } from "../utils/jwt";
 import { RoleEnum, StatusEnum } from "../utils/enum";
-import { Customer } from "../entities/customer.entity";
-import { Manager } from "../entities/manager.entity";
-import { Staff } from "../entities/staff.entity";
-import { Consultant } from "../entities/consultant.entity";
-import { KOL } from "../entities/KOL.entity";
-import { Operator } from "../entities/operator.entity";
 import {
   sendRegisterAccountEmail,
   sendResetPasswordEmail,
 } from "./mail.service";
+import { Address } from "../entities/address.entity";
+import { File } from "../entities/file.entity";
+import { roleService } from "./role.service";
 const repository = AppDataSource.getRepository(Account);
 class AccountService extends BaseService<Account> {
   constructor() {
     super(repository);
+  }
+
+  async getById(accountId: string) {
+    const account = await repository.findOne({
+      where: { id: accountId },
+      relations: ["role"],
+    });
+
+    if (!account) {
+      throw new Error("Account not found");
+    }
+    return {
+      ...account,
+      role: account.role.role,
+    };
+  }
+
+  async getBy(value: any, option: string) {
+    const accounts = repository.find({
+      where: {
+        [option]: value,
+      },
+      relations: ["role"],
+    });
+
+    return (await accounts).map((account) => ({
+      ...account,
+      role: account.role ? account.role.role : null,
+    }));
   }
 
   async createAccount(accountData: Partial<Account>): Promise<Account> {
@@ -68,52 +94,68 @@ class AccountService extends BaseService<Account> {
     account: Account,
     data: any
   ) {
-    switch (account.role) {
+    const avatar: Partial<File> = {
+      account: account,
+      name: data.avatar.name,
+      fileUrl: data.avatar.fileUrl,
+      type: data.avatar.type,
+    };
+    await queryRunner.manager.save(File, avatar);
+
+    if (
+      data.role !== RoleEnum.CONSULTANT &&
+      data.role !== RoleEnum.KOL &&
+      data.certificate
+    ) {
+      throw new BadRequestError(
+        "Certificate is only available for role CONSULTANT and KOL"
+      );
+    }
+
+    const role = await roleService.findById(account.role);
+    switch (role.role) {
       case RoleEnum.CUSTOMER:
-        const customer: Partial<Customer> = {
+        const address: Partial<Address> = {
           account: account,
-          address: data.address,
+          number: data.address.number,
+          building: data.address.building,
+          street: data.address.street,
+          ward: data.address.ward,
+          city: data.address.city,
+          province: data.address.province,
+          fullAddress: data.address.fullAddress,
+          type: data.address.type,
         };
-        await queryRunner.manager.save(Customer, customer);
+        await queryRunner.manager.save(Address, address);
         await sendRegisterAccountEmail(account);
         break;
       case RoleEnum.MANAGER:
-        const manager: Partial<Manager> = {
-          account: account,
-        };
-        await queryRunner.manager.save(Manager, manager);
         await sendRegisterAccountEmail(account);
         break;
       case RoleEnum.STAFF:
-        const staff: Partial<Staff> = {
-          account: account,
-        };
-        await queryRunner.manager.save(Staff, staff);
         await sendResetPasswordEmail(account);
         break;
       case RoleEnum.CONSULTANT:
-        const consultant: Partial<Consultant> = {
+        const certConsultant: Partial<File> = {
           account: account,
-          yoe: data.yoe,
-          certificates: data.certificates,
+          name: data.certificate.name,
+          fileUrl: data.certificate.fileUrl,
+          type: data.certificate.type,
         };
-        await queryRunner.manager.save(Consultant, consultant);
+        await queryRunner.manager.save(File, certConsultant);
         await sendRegisterAccountEmail(account);
         break;
       case RoleEnum.KOL:
-        const kol: Partial<KOL> = {
+        const certKOL: Partial<File> = {
           account: account,
-          yoe: data.yoe,
-          certificates: data.certificates,
+          name: data.certificate.name,
+          fileUrl: data.certificate.fileUrl,
+          type: data.certificatel.type,
         };
-        await queryRunner.manager.save(KOL, kol);
+        await queryRunner.manager.save(File, certKOL);
         await sendResetPasswordEmail(account);
         break;
       case RoleEnum.OPERATION:
-        const operator: Partial<Operator> = {
-          account: account,
-        };
-        await queryRunner.manager.save(Operator, operator);
         await sendResetPasswordEmail(account);
         break;
       default:
