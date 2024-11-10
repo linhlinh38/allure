@@ -15,7 +15,8 @@ export async function sendRegisterAccountEmail(account: Account) {
         pass: config.EMAIL_PASSWORD,
       },
     });
-    const code = jwt.sign(account.id, config.SECRET_KEY_FOR_ACCESS_TOKEN, {
+    const payload = { accountId: account.id.toString() };
+    const code = jwt.sign(payload, config.SECRET_KEY_FOR_ACCESS_TOKEN, {
       expiresIn: "3h",
     });
 

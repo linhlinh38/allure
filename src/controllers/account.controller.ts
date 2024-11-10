@@ -4,18 +4,6 @@ import { accountService } from "../services/account.service";
 import { NextFunction, Request, Response } from "express";
 import { encryptedPassword } from "../utils/jwt";
 import { RoleEnum, StatusEnum } from "../utils/enum";
-import { customerService } from "../services/customer.service";
-import { Customer } from "../entities/customer.entity";
-import { Manager } from "../entities/manager.entity";
-import { managerService } from "../services/manager.service";
-import { Staff } from "../entities/staff.entity";
-import { staffService } from "../services/staff.service";
-import { Consultant } from "../entities/consultant.entity";
-import { consultantService } from "../services/consultant.service";
-import { KOL } from "../entities/KOL.entity";
-import { KOLService } from "../services/KOL.service";
-import { Operator } from "../entities/operator.entity";
-import { operatorService } from "../services/operator.service";
 import { AccountResponse } from "../dtos/response/account.response";
 import { instanceToPlain, plainToClass } from "class-transformer";
 import { AuthRequest } from "../middleware/authentication";
@@ -24,6 +12,7 @@ import {
   sendRegisterAccountEmail,
   sendResetPasswordEmail,
 } from "../services/mail.service";
+import { roleService } from "../services/role.service";
 
 async function getAllAccount(req: Request, res: Response, next: NextFunction) {
   try {
@@ -41,10 +30,11 @@ async function getAllAccount(req: Request, res: Response, next: NextFunction) {
 
 async function getAccountBy(req: Request, res: Response, next: NextFunction) {
   try {
-    const account = await accountService.findBy(
+    const account = await accountService.getBy(
       req.params.value,
       req.params.option as unknown as string
     );
+
     const responseData = account.map((acc) =>
       plainToClass(AccountResponse, acc)
     );
@@ -62,15 +52,14 @@ async function getMyProfile(
   next: NextFunction
 ) {
   try {
-    const account = await accountService.findBy(req.loginUser, "id");
-    const responseData = account.map((acc) => {
-      return {
-        ...plainToClass(AccountResponse, acc),
-        dob: acc.dob.toLocaleString(),
-        createdAt: acc.createdAt.toLocaleString(),
-        updatedAt: acc.updatedAt.toLocaleString(),
-      };
-    });
+    const account = await accountService.getById(req.loginUser);
+    const responseData = {
+      ...plainToClass(AccountResponse, account),
+      dob: account.dob.toLocaleString(),
+      createdAt: account.createdAt.toLocaleString(),
+      updatedAt: account.updatedAt.toLocaleString(),
+    };
+
     return res
       .status(200)
       .send({ message: "Get account success", data: responseData });
