@@ -24,14 +24,15 @@ export const AccountCreateSchema = z.object({
     username: z
       .string()
       .min(1, "Username is required")
-      .max(100, "Username cannot exceed 100 characters"),
+      .max(100, "Username cannot exceed 100 characters")
+      .optional(),
     email: z.string().email("Invalid email address"),
     password: z
       .string()
       .min(8, "Password must be at least 8 characters long")
       .optional(),
     role: z.string(),
-    gender: z.nativeEnum(GenderEnum).optional().default(GenderEnum.MALE),
+    gender: z.nativeEnum(GenderEnum).optional(),
     phone: z
       .string()
       .regex(/^[0-9]{10,15}$/, "Phone must be a string with 10 to 15 digits")
