@@ -16,48 +16,48 @@ import { Role } from "./role.entity";
 import { Brand } from "./brand.entity";
 import { Follows } from "./follow.entity";
 
-@Entity('accounts')
+@Entity("accounts")
 export class Account extends BaseEntity {
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ type: "varchar", length: 100, nullable: true })
   firstName: string;
 
-  @Column({ type: 'varchar', length: 100 })
+  @Column({ type: "varchar", length: 100, nullable: true })
   lastName: string;
 
-  @Column({ type: 'varchar', length: 100, unique: true })
+  @Column({ type: "varchar", length: 100, unique: true, nullable: true })
   username?: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: false })
+  @Column({ type: "varchar", length: 255, nullable: false })
   email: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: "varchar", length: 255, nullable: true })
   password: string;
 
   @ManyToOne(() => Role, (role) => role.accounts)
-  @JoinColumn({ name: 'roleId' })
+  @JoinColumn({ name: "roleId" })
   role: Role;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: GenderEnum,
-    default: GenderEnum.MALE,
+    nullable: true,
   })
   gender: GenderEnum;
 
-  @Column({ type: 'varchar', length: 15, nullable: true })
+  @Column({ type: "varchar", length: 15, nullable: true })
   phone?: string;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: "timestamp", nullable: true })
   dob?: Date;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: StatusEnum,
-    default: StatusEnum.ACTIVE,
+    default: StatusEnum.PENDING,
   })
   status: StatusEnum;
 
-  @Column({ type: 'integer', nullable: true })
+  @Column({ type: "integer", nullable: true })
   yoe: number;
 
   @OneToMany(() => Address, (address) => address.account, { nullable: true })
@@ -68,9 +68,9 @@ export class Account extends BaseEntity {
 
   @ManyToMany(() => Brand, (brand) => brand.accounts)
   @JoinTable({
-    name: 'account_brand_role',
-    joinColumn: { name: 'account_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'brand_id', referencedColumnName: 'id' },
+    name: "account_brand_role",
+    joinColumn: { name: "account_id", referencedColumnName: "id" },
+    inverseJoinColumn: { name: "brand_id", referencedColumnName: "id" },
   })
   brands: Brand[];
 

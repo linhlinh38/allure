@@ -1,8 +1,8 @@
 import moment from "moment";
 
 export function generateAccountRegisterContent(
-  username: string,
-  link: string
+  link: string,
+  username?: string
 ): {
   html: string;
   text: string;

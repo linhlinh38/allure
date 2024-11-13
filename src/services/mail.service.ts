@@ -22,7 +22,8 @@ export async function sendRegisterAccountEmail(account: Account) {
 
     const link = `http://localhost:3000/verify-email?code=${code}`;
 
-    const body = generateAccountRegisterContent(account.username, link);
+    const body = generateAccountRegisterContent(link, account?.username);
+    console.log(body);
 
     const mailOptions = {
       from: config.FROM_EMAIL,
@@ -53,7 +54,7 @@ export async function sendResetPasswordEmail(account: Account) {
 
     const link = `http://localhost:3000/reset-pass?code=${code}`;
 
-    const body = generateResetPasswordContent(account.username, link);
+    const body = generateResetPasswordContent(link, account?.username);
 
     const mailOptions = {
       from: config.FROM_EMAIL,
