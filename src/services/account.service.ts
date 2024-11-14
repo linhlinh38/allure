@@ -94,13 +94,15 @@ class AccountService extends BaseService<Account> {
     account: Account,
     data: any
   ) {
-    const avatar: Partial<File> = {
-      account: account,
-      name: data.avatar.name,
-      fileUrl: data.avatar.fileUrl,
-      type: data.avatar.type,
-    };
-    await queryRunner.manager.save(File, avatar);
+    if (data.avatar) {
+      const avatar: Partial<File> = {
+        account: account,
+        name: data.avatar.name,
+        fileUrl: data.avatar.fileUrl,
+        type: data.avatar.type,
+      };
+      await queryRunner.manager.save(File, avatar);
+    }
 
     if (
       data.role !== RoleEnum.CONSULTANT &&
@@ -115,18 +117,20 @@ class AccountService extends BaseService<Account> {
     const role = await roleService.findById(account.role);
     switch (role.role) {
       case RoleEnum.CUSTOMER:
-        const address: Partial<Address> = {
-          account: account,
-          number: data.address.number,
-          building: data.address.building,
-          street: data.address.street,
-          ward: data.address.ward,
-          city: data.address.city,
-          province: data.address.province,
-          fullAddress: data.address.fullAddress,
-          type: data.address.type,
-        };
-        await queryRunner.manager.save(Address, address);
+        if (data.address) {
+          const address: Partial<Address> = {
+            account: account,
+            number: data.address.number,
+            building: data.address.building,
+            street: data.address.street,
+            ward: data.address.ward,
+            city: data.address.city,
+            province: data.address.province,
+            fullAddress: data.address.fullAddress,
+            type: data.address.type,
+          };
+          await queryRunner.manager.save(Address, address);
+        }
         await sendRegisterAccountEmail(account);
         break;
       case RoleEnum.MANAGER:
@@ -136,23 +140,28 @@ class AccountService extends BaseService<Account> {
         await sendResetPasswordEmail(account);
         break;
       case RoleEnum.CONSULTANT:
-        const certConsultant: Partial<File> = {
-          account: account,
-          name: data.certificate.name,
-          fileUrl: data.certificate.fileUrl,
-          type: data.certificate.type,
-        };
-        await queryRunner.manager.save(File, certConsultant);
+        if (data.certificate) {
+          const certConsultant: Partial<File> = {
+            account: account,
+            name: data.certificate.name,
+            fileUrl: data.certificate.fileUrl,
+            type: data.certificate.type,
+          };
+          await queryRunner.manager.save(File, certConsultant);
+        }
+
         await sendRegisterAccountEmail(account);
         break;
       case RoleEnum.KOL:
-        const certKOL: Partial<File> = {
-          account: account,
-          name: data.certificate.name,
-          fileUrl: data.certificate.fileUrl,
-          type: data.certificatel.type,
-        };
-        await queryRunner.manager.save(File, certKOL);
+        if (data.certificate) {
+          const certKOL: Partial<File> = {
+            account: account,
+            name: data.certificate.name,
+            fileUrl: data.certificate.fileUrl,
+            type: data.certificatel.type,
+          };
+          await queryRunner.manager.save(File, certKOL);
+        }
         await sendResetPasswordEmail(account);
         break;
       case RoleEnum.OPERATION:
