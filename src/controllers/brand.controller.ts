@@ -6,7 +6,7 @@ import { Brand } from '../entities/brand.entity';
 import { AppDataSource } from '../dataSource';
 import { createBadResponse, createNormalResponse } from '../utils/response';
 import { AuthRequest } from '../middleware/authentication';
-import { FilterDTO } from '../dtos/other/filter.dto';
+import { SearchDTO as SearchDTO } from '../dtos/other/search.dto';
 
 export default class BrandController {
   static async getAll(req: Request, res: Response, next: NextFunction) {
@@ -32,10 +32,10 @@ export default class BrandController {
     }
   }
 
-  static async filter(req: Request, res: Response, next: NextFunction) {
+  static async search(req: Request, res: Response, next: NextFunction) {
     try {
-      const filters: FilterDTO[] = req.body.filters as FilterDTO[];
-      const brand: Brand[] = await brandService.filter(filters);
+      const searches: SearchDTO[] = req.body.filters as SearchDTO[];
+      const brand: Brand[] = await brandService.search(searches);
       const responseData = plainToInstance(BrandResponse, brand);
       return createNormalResponse(res, 'Get brands success', responseData);
     } catch (err) {
@@ -54,13 +54,29 @@ export default class BrandController {
     }
   }
 
+  static async updateDetail(req: Request, res: Response, next: NextFunction) {
+    try {
+      const brandBody = plainToInstance(Brand, req.body, {
+        excludeExtraneousValues: true,
+      });
+      await brandService.updateDetail(req.params.id, brandBody);
+      
+      return createNormalResponse(res, 'Update success');
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async requestCreateBrand(
     req: AuthRequest,
     res: Response,
     next: NextFunction
   ) {
     try {
-      brandService.requestCreateBrand(req.loginUser, req.body as Brand);
+      const brandBody = plainToInstance(Brand, req.body, {
+        excludeExtraneousValues: true,
+      });
+      await brandService.requestCreateBrand(req.loginUser, brandBody);
       return createNormalResponse(res, 'Create request success');
     } catch (err) {
       next(err);
