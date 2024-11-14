@@ -5,7 +5,7 @@ export enum RoleEnum {
   STAFF = "STAFF",
   KOL = "KOL",
   ADMIN = "ADMIN",
-  OPERATION = "OPERATION",
+  OPERATOR = "OPERATOR",
 }
 
 export enum GenderEnum {

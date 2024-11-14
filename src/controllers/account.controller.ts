@@ -10,6 +10,7 @@ import { AuthRequest } from "../middleware/authentication";
 import moment from "moment";
 import {
   sendRegisterAccountEmail,
+  sendRequestCreateAccountEmail,
   sendResetPasswordEmail,
 } from "../services/mail.service";
 import { roleService } from "../services/role.service";
@@ -174,6 +175,21 @@ async function updateAccount(
   }
 }
 
+async function activeAccount(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const account = await accountService.update(req.params.id, {
+      status: StatusEnum.ACTIVE,
+    });
+    return res.status(200).send({ message: "Update account success" });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function requestResetPassword(
   req: AuthRequest,
   res: Response,
@@ -188,6 +204,28 @@ async function requestResetPassword(
     return res
       .status(200)
       .send({ message: "Send reset password mail success" });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function requestCreateAccount(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const checkEmail = await accountService.findBy(req.body.email, "email");
+
+    if (checkEmail.length !== 0) {
+      throw new EmailAlreadyExistError("Email already exists!");
+    }
+    await sendRequestCreateAccountEmail(
+      req.body.email,
+      req.body.brand,
+      req.body.role
+    );
+    return res.status(200).send({ message: "Send mail success" });
   } catch (error) {
     next(error);
   }
@@ -253,4 +291,6 @@ export const accountController = {
   setPassword,
   modifyPassword,
   requestResetPassword,
+  requestCreateAccount,
+  activeAccount,
 };
