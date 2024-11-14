@@ -1,4 +1,4 @@
-import { DataSource, QueryRunner, Repository } from "typeorm";
+import { DataSource, In, QueryRunner, Repository } from "typeorm";
 import { Account } from "../entities/account.entity";
 import { BaseService } from "./base.service";
 import { AppDataSource } from "../dataSource";
@@ -12,6 +12,7 @@ import {
 import { Address } from "../entities/address.entity";
 import { File } from "../entities/file.entity";
 import { roleService } from "./role.service";
+import { Brand } from "../entities/brand.entity";
 const repository = AppDataSource.getRepository(Account);
 class AccountService extends BaseService<Account> {
   constructor() {
@@ -65,8 +66,28 @@ class AccountService extends BaseService<Account> {
       if (accountData.password) {
         accountData.password = await encryptedPassword(accountData.password);
       }
+      const role = await roleService.findById(accountData.role);
 
-      accountData.status = StatusEnum.PENDING;
+      if (
+        role.role === RoleEnum.KOL ||
+        role.role === RoleEnum.STAFF ||
+        role.role === RoleEnum.OPERATOR
+      ) {
+        accountData.status = StatusEnum.ACTIVE;
+      } else {
+        accountData.status = StatusEnum.PENDING;
+      }
+      let brands = [];
+      if (accountData.brands && accountData.brands.length > 0) {
+        const brandRepository = queryRunner.manager.getRepository(Brand);
+
+        brands = await brandRepository.find({
+          where: { id: In(accountData.brands) },
+        });
+      }
+
+      accountData.brands = brands;
+
       const createdAccount = await queryRunner.manager.save(
         Account,
         accountData
@@ -137,7 +158,8 @@ class AccountService extends BaseService<Account> {
         await sendRegisterAccountEmail(account);
         break;
       case RoleEnum.STAFF:
-        await sendResetPasswordEmail(account);
+        console.log("create staff");
+        //await sendResetPasswordEmail(account);
         break;
       case RoleEnum.CONSULTANT:
         if (data.certificate) {
@@ -162,10 +184,13 @@ class AccountService extends BaseService<Account> {
           };
           await queryRunner.manager.save(File, certKOL);
         }
-        await sendResetPasswordEmail(account);
+        console.log("create kol");
+        //await sendResetPasswordEmail(account);
         break;
-      case RoleEnum.OPERATION:
-        await sendResetPasswordEmail(account);
+      case RoleEnum.OPERATOR:
+        //await sendResetPasswordEmail(account);
+        console.log("create operator");
+
         break;
       default:
         throw new Error("Invalid role provided");
