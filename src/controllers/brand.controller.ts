@@ -60,7 +60,7 @@ export default class BrandController {
         excludeExtraneousValues: true,
       });
       await brandService.updateDetail(req.params.id, brandBody);
-      
+
       return createNormalResponse(res, 'Update success');
     } catch (err) {
       next(err);
@@ -78,6 +78,31 @@ export default class BrandController {
       });
       await brandService.requestCreateBrand(req.loginUser, brandBody);
       return createNormalResponse(res, 'Create request success');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async toggleFollowBrand(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      await brandService.toggleFollowBrand(req.loginUser, req.params.id);
+      return createNormalResponse(res, 'Toggle follow success');
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async getFollowedBrands(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      return createNormalResponse(res, 'Get followed brands success', await brandService.getFollowedBrands(req.loginUser));
     } catch (err) {
       next(err);
     }

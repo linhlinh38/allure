@@ -1,8 +1,16 @@
-import { Column, Entity, JoinColumn, ManyToMany, OneToMany, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToMany,
+  OneToMany,
+  OneToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { StatusEnum } from '../utils/enum';
 import { Account } from './account.entity';
-import { Follows } from './follow.entity';
+import { Follow } from './follow.entity';
 import { Expose } from 'class-transformer';
 
 @Entity('brands')
@@ -26,8 +34,8 @@ export class Brand extends BaseEntity {
   @ManyToMany(() => Account, (account) => account.brands)
   accounts: Account[];
 
-  @OneToMany(() => Follows, (follows) => follows.brand)
-  follows: Follows[];
+  @OneToMany(() => Follow, (follows) => follows.brand)
+  follows: Follow[];
 
   @Expose()
   @Column({ type: 'varchar', length: 255, nullable: false })

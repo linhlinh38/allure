@@ -9,7 +9,7 @@ import { Brand } from './brand.entity';
 import { BaseEntity } from './base.entity';
 
 @Entity()
-export class Follows extends BaseEntity {
+export class Follow extends BaseEntity {
   @ManyToOne(() => Account, (account) => account.follows)
   account: Account;
 

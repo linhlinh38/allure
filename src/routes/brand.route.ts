@@ -5,15 +5,11 @@ import {
   BrandCreateSchema,
   BrandUpdateStatusSchema,
 } from '../dtos/request/brand.request';
+import authentication from '../middleware/authentication';
 const brandRoute = express.Router();
 brandRoute.get('/', BrandController.getAll);
 brandRoute.get('/get-by-id/:id', BrandController.getById);
 brandRoute.post('/search', BrandController.search);
-brandRoute.post(
-  '/create',
-  validate(BrandCreateSchema),
-  BrandController.requestCreateBrand
-);
 brandRoute.put(
   '/update-status/:id',
   validate(BrandUpdateStatusSchema),
@@ -24,4 +20,17 @@ brandRoute.put(
   validate(BrandUpdateStatusSchema),
   BrandController.updateDetail
 );
+
+
+brandRoute.use(authentication);
+brandRoute.post(
+  '/create',
+  validate(BrandCreateSchema),
+  BrandController.requestCreateBrand
+);
+brandRoute.post(
+  '/toggle-follow/:id',
+  BrandController.toggleFollowBrand
+);
+brandRoute.get('/get-followed-brands', BrandController.getFollowedBrands);
 export default brandRoute;
