@@ -48,7 +48,7 @@ class AccountService extends BaseService<Account> {
     }));
   }
 
-  async createAccount(accountData: Partial<Account>): Promise<Account> {
+  async createAccount(accountData: Account): Promise<Account> {
     const queryRunner = AppDataSource.createQueryRunner();
 
     await queryRunner.connect();
@@ -74,6 +74,7 @@ class AccountService extends BaseService<Account> {
         role.role === RoleEnum.OPERATOR
       ) {
         accountData.status = StatusEnum.ACTIVE;
+        accountData.isEmailVerify = true;
       } else {
         accountData.status = StatusEnum.PENDING;
       }
@@ -149,6 +150,7 @@ class AccountService extends BaseService<Account> {
             province: data.address.province,
             fullAddress: data.address.fullAddress,
             type: data.address.type,
+            isDefault: true,
           };
           await queryRunner.manager.save(Address, address);
         }

@@ -22,7 +22,6 @@ export enum StatusEnum {
 }
 
 export enum AddressEnum {
-  DEFAULT = "DEFAULT",
   HOME = "HOME",
   OFFICE = "OFFICE",
   OTHER = "OTHER",
