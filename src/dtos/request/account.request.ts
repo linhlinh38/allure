@@ -51,7 +51,7 @@ export const AccountCreateSchema = z.object({
         }
       )
       .optional(),
-    address: AddressCreateSchema.optional(),
+    address: AddressCreateSchema.shape.body.optional(),
     avatar: FileCreateSchema.optional(),
     certificate: FileCreateSchema.optional(),
   }),

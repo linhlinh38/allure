@@ -43,6 +43,13 @@ export abstract class BaseService<T> implements ICRUDService<T> {
     return await this.repository.save(data);
   }
 
+  async createMany(dataArray: T[]): Promise<T[]> {
+    for (const data of dataArray) {
+      await this.beforeCreate(data);
+    }
+    return await this.repository.save(dataArray);
+  }
+
   async update(id: any, data: QueryDeepPartialEntity<T>): Promise<T | null> {
     await this.beforeUpdate(id, data);
     const updatedEntity = await this.repository.update({ id }, data);

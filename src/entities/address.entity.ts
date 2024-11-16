@@ -48,6 +48,9 @@ export class Address extends BaseEntity {
   })
   status: StatusEnum;
 
+  @Column({ type: "boolean", default: false })
+  isDefault: boolean;
+
   @ManyToOne(() => Account, (account) => account.addresses)
   @JoinColumn({ name: "accountId" })
   account: Account;
