@@ -16,15 +16,21 @@ accountRouter.post(
 );
 
 accountRouter.put(
-  "/update-account/:id",
+  "/set-password/:id",
   validate(AccountUpdateSchema),
   accountController.setPassword
 );
 
 accountRouter.put(
-  "/active-account/:id",
+  "/update-account-status/:id",
   validate(AccountUpdateSchema),
-  accountController.activeAccount
+  accountController.updateAccountStatus
+);
+
+accountRouter.put(
+  "/verify-account/:id",
+  validate(AccountUpdateSchema),
+  accountController.verifyAccount
 );
 
 accountRouter.post(
@@ -37,12 +43,6 @@ accountRouter.put(
   "/modify-password/:id",
   validate(AccountUpdateSchema),
   accountController.modifyPassword
-);
-
-accountRouter.put(
-  "/set-password-first-time/:id",
-  validate(AccountUpdateSchema),
-  accountController.setPassword
 );
 
 accountRouter.use(authentication);
