@@ -22,6 +22,33 @@ export default class ProductController {
     }
   }
 
+  static async searchBy(req: Request, res: Response, next: NextFunction) {
+    try {
+      const products = await productService.findBy(
+        req.params.value,
+        req.params.option
+      );
+      return createNormalResponse(res, "Get product success", products);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async searchProductsName(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const products = await productService.searchProductsName(
+        req.params.searchKey
+      );
+      return createNormalResponse(res, "Get product name success", products);
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async update(req: Request, res: Response, next: NextFunction) {
     try {
       await productService.update(req.params.id, req.body);

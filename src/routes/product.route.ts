@@ -9,15 +9,19 @@ import ProductController from "../controllers/product.controller";
 
 const productRouter = express.Router();
 
+productRouter.get("/get-by-id/:id", ProductController.getById);
+productRouter.get("/search-by/:option/:value", ProductController.searchBy);
+productRouter.get(
+  "/search-name/:searchKey",
+  ProductController.searchProductsName
+);
+productRouter.get("/", ProductController.getAll);
 productRouter.use(authentication);
 productRouter.post(
   "/",
   validate(ProductCreateSchema),
   ProductController.create
 );
-
-productRouter.get("/get-by-id/:id", ProductController.getById);
-productRouter.get("/", ProductController.getAll);
 productRouter.put(
   "/:id",
   validate(ProductUpdateSchema),

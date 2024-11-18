@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ProductClassificationCreateSchema } from "./productClassification.request";
+import { ProductImageCreateSchema } from "./productImage.request";
 
 export const ProductCreateSchema = z.object({
   body: z.object({
@@ -7,11 +8,13 @@ export const ProductCreateSchema = z.object({
     brand: z.string().uuid(),
     category: z.string().uuid().nullable().optional(),
     description: z.string().optional(),
+    detail: z.string().optional(),
     price: z.number().int().nonnegative("Price must be non-negative"),
     quantity: z.number().int().nonnegative("Quantity must be non-negative"),
     productClassifications: z
       .array(ProductClassificationCreateSchema.shape.body)
       .optional(),
+    images: z.array(ProductImageCreateSchema.shape.body).optional(),
   }),
 });
 
