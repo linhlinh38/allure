@@ -9,7 +9,7 @@ import {
 import { BaseEntity } from "./base.entity";
 import { Product } from "./product.entity";
 
-@Entity()
+@Entity("categories")
 export class Category extends BaseEntity {
   @PrimaryGeneratedColumn("uuid")
   id: string;

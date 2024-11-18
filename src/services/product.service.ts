@@ -1,3 +1,4 @@
+import { ILike } from "typeorm";
 import { AppDataSource } from "../dataSource";
 import { Product } from "../entities/product.entity";
 import { ProductClassification } from "../entities/productClassification";
@@ -6,6 +7,7 @@ import { StatusEnum } from "../utils/enum";
 import { BaseService } from "./base.service";
 import { brandService } from "./brand.service";
 import { categoryService } from "./category.service";
+import { ProductImage } from "../entities/productImage.entity";
 
 const repository = AppDataSource.getRepository(Product);
 class ProductService extends BaseService<Product> {
@@ -15,7 +17,7 @@ class ProductService extends BaseService<Product> {
 
   async getAll() {
     const product = await repository.find({
-      relations: ["category", "brand", "productClassifications"],
+      relations: ["category", "brand", "productClassifications", "images"],
     });
 
     return product;
@@ -23,7 +25,7 @@ class ProductService extends BaseService<Product> {
   async getById(id: string) {
     const product = await repository.find({
       where: { id },
-      relations: ["category", "brand", "productClassifications"],
+      relations: ["category", "brand", "productClassifications", "images"],
     });
 
     return product;
@@ -66,6 +68,15 @@ class ProductService extends BaseService<Product> {
         );
       }
 
+      let images: ProductImage[] = [];
+      if (productData.images && productData.images.length > 0) {
+        const productImages = productData.images.map((image) => ({
+          ...image,
+          product,
+        }));
+        images = await queryRunner.manager.save(ProductImage, productImages);
+      }
+
       await queryRunner.commitTransaction();
       return product;
     } catch (error) {
@@ -74,6 +85,17 @@ class ProductService extends BaseService<Product> {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  async searchProductsName(searchKey: string): Promise<string[]> {
+    const products = await repository.find({
+      where: {
+        name: ILike(`%${searchKey}%`),
+      },
+      select: ["name"],
+    });
+
+    return products.map((product) => product.name);
   }
 }
 export const productService = new ProductService();

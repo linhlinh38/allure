@@ -11,7 +11,7 @@ import { BaseEntity } from "./base.entity";
 import { AddressEnum, GenderEnum, RoleEnum, StatusEnum } from "../utils/enum";
 import { Account } from "./account.entity";
 
-@Entity("address")
+@Entity("addresses")
 export class Address extends BaseEntity {
   @Column({ type: "varchar", length: 100, nullable: true })
   number?: string;
