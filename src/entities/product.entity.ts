@@ -12,8 +12,9 @@ import { Category } from "./category.entity";
 import { Brand } from "./brand.entity";
 import { StatusEnum } from "../utils/enum";
 import { ProductClassification } from "./productClassification";
+import { ProductImage } from "./productImage.entity";
 
-@Entity()
+@Entity("products")
 export class Product {
   @PrimaryGeneratedColumn("uuid")
   id: string;
@@ -32,6 +33,9 @@ export class Product {
   @Column({ type: "varchar", nullable: true })
   description: string;
 
+  @Column({ type: "varchar", nullable: true })
+  detail: string;
+
   @Column({ type: "int", nullable: false })
   price: number;
 
@@ -44,6 +48,10 @@ export class Product {
   )
   @JoinColumn({ name: "productClassifications" })
   productClassifications: ProductClassification[];
+
+  @OneToMany(() => ProductImage, (image) => image.product, { nullable: true })
+  @JoinColumn({ name: "productImages" })
+  images?: ProductImage[];
 
   @Column({
     type: "enum",

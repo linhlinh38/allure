@@ -8,7 +8,7 @@ import {
 import { Product } from "./product.entity";
 import { StatusEnum } from "../utils/enum";
 
-@Entity()
+@Entity("product_classifications")
 export class ProductClassification {
   @PrimaryGeneratedColumn("uuid")
   id: string;
