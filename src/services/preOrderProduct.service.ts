@@ -14,6 +14,20 @@ class PreOrderProductService extends BaseService<PreOrderProduct> {
   constructor() {
     super(repository);
   }
+
+  async getPreOrderProductActiveOfBrand(
+    brandId: string
+  ): Promise<PreOrderProduct[]> {
+    const products = await repository
+      .createQueryBuilder("preOrderProduct")
+      .leftJoinAndSelect("preOrderProduct.product", "product")
+      .leftJoinAndSelect("product.brand", "brand")
+      .where("preOrderProduct.status = :status", { status: StatusEnum.ACTIVE })
+      .andWhere("brand.id = :brandId", { brandId })
+      .getMany();
+
+    return products;
+  }
   async beforeCreate(data: PreOrderProduct) {
     const existingProduct = await productService.findById(data.product);
     if (!existingProduct) {

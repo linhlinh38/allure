@@ -16,6 +16,26 @@ export default class PreOrderProductController {
     }
   }
 
+  static async getPreOrderProductActiveOfBrand(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const PreOrderProducts =
+        await preOrderProductService.getPreOrderProductActiveOfBrand(
+          req.params.brandId
+        );
+      return createNormalResponse(
+        res,
+        "Get all PreOrderProducts success",
+        PreOrderProducts
+      );
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async getById(req: Request, res: Response, next: NextFunction) {
     try {
       const PreOrderProduct = await preOrderProductService.findById(
