@@ -54,3 +54,10 @@ export enum DiscountTypeEnum {
   PERCENTAGE = "PERCENTAGE",
   AMOUNT = "AMOUNT",
 }
+
+export enum OrderEnum {
+  PRE_ORDER = "PRE_ORDER",
+  NORMAL = "NORMAL",
+  GROUP_BUYING = "GROUP_BUYING",
+  FLASH_SALE = "FLASH_SALE",
+}

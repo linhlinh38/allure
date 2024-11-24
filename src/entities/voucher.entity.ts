@@ -2,6 +2,7 @@ import { Column, Entity, JoinColumn, ManyToMany, ManyToOne, OneToMany } from 'ty
 import { BaseEntity } from './base.entity';
 import { StatusEnum } from '../utils/enum';
 import { Brand } from './brand.entity';
+import { Order } from './order.entity';
 
 @Entity('vouchers')
 export class Voucher extends BaseEntity {
@@ -48,4 +49,7 @@ export class Voucher extends BaseEntity {
   @ManyToOne(() => Brand, (brand) => brand.vouchers)
   @JoinColumn({ name: 'brand_id' })
   brand: Brand;
+
+  @ManyToMany(() => Order, (order) => order.vouchers)
+  orders: Order[];
 }
