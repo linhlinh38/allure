@@ -143,7 +143,7 @@ async function requestResetPassword(
     if (!account[0] || account[0].status !== StatusEnum.ACTIVE) {
       throw new NotFoundError("Account invalid!");
     }
-    await sendResetPasswordEmail(account[0]);
+    await sendResetPasswordEmail(account[0], req.body.url);
     return res
       .status(200)
       .send({ message: "Send reset password mail success" });
