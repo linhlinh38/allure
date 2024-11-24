@@ -56,7 +56,7 @@ async function getMyProfile(
     const account = await accountService.getById(req.loginUser);
     const responseData = {
       ...plainToClass(AccountResponse, account),
-      dob: account.dob.toLocaleString(),
+      dob: account?.dob ? account.dob.toLocaleString() : null,
       createdAt: account.createdAt.toLocaleString(),
       updatedAt: account.updatedAt.toLocaleString(),
     };

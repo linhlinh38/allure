@@ -7,7 +7,6 @@ import { BadRequestError } from "../errors/error";
 import { ProductEnum, StatusEnum } from "../utils/enum";
 import { BaseService } from "./base.service";
 import { productService } from "./product.service";
-import cron from "node-cron";
 
 const repository = AppDataSource.getRepository(PreOrderProduct);
 class PreOrderProductService extends BaseService<PreOrderProduct> {
@@ -22,7 +21,14 @@ class PreOrderProductService extends BaseService<PreOrderProduct> {
       .createQueryBuilder("preOrderProduct")
       .leftJoinAndSelect("preOrderProduct.product", "product")
       .leftJoinAndSelect("product.brand", "brand")
+      .leftJoinAndSelect(
+        "preOrderProduct.productClassifications",
+        "productClassifications"
+      )
       .where("preOrderProduct.status = :status", { status: StatusEnum.ACTIVE })
+      .andWhere("product.status = :productStatus", {
+        productStatus: ProductEnum.PRE_ORDER,
+      })
       .andWhere("brand.id = :brandId", { brandId })
       .getMany();
 
@@ -74,6 +80,17 @@ class PreOrderProductService extends BaseService<PreOrderProduct> {
           ...data,
           product,
         });
+
+        const classificationsWithPreOrderPoduct =
+          data.productClassifications.map((classification) => ({
+            ...classification,
+            preOrderProduct,
+          }));
+
+        await queryRunner.manager.save(
+          ProductClassification,
+          classificationsWithPreOrderPoduct
+        );
       } else {
         preOrderProduct = await queryRunner.manager.save(PreOrderProduct, data);
 
@@ -82,6 +99,7 @@ class PreOrderProductService extends BaseService<PreOrderProduct> {
             ...classification,
             preOrderProduct,
           }));
+
         await queryRunner.manager.save(
           ProductClassification,
           classificationsWithPreOrderPoduct
@@ -99,84 +117,3 @@ class PreOrderProductService extends BaseService<PreOrderProduct> {
   }
 }
 export const preOrderProductService = new PreOrderProductService();
-
-const startPreOrderCheck = () => {
-  cron.schedule("* * * * *", async () => {
-    const queryRunner = AppDataSource.createQueryRunner();
-    console.log("cron running!");
-
-    try {
-      await queryRunner.connect();
-
-      const preOrderProducts = await queryRunner.manager.find(PreOrderProduct, {
-        relations: ["product"],
-      });
-
-      const currentDate = new Date();
-
-      for (const preOrder of preOrderProducts) {
-        const startTime = new Date(preOrder.startTime);
-        const endTime = new Date(preOrder.endTime);
-
-        if (
-          currentDate >= startTime &&
-          currentDate <= endTime &&
-          preOrder.product.status !== ProductEnum.PRE_ORDER
-        ) {
-          await queryRunner.manager.update(Product, preOrder.product.id, {
-            status: ProductEnum.PRE_ORDER,
-          });
-
-          console.log(
-            `Product ${preOrder.product.id} has been updated to PRE-ORDER status.`
-          );
-        }
-      }
-    } catch (error) {
-      console.error("Error updating pre-order products:", error);
-    } finally {
-      await queryRunner.release();
-    }
-  });
-};
-
-const endPreOrderCheck = () => {
-  cron.schedule("* * * * *", async () => {
-    const queryRunner = AppDataSource.createQueryRunner();
-
-    try {
-      await queryRunner.connect();
-
-      const preOrderProducts = await queryRunner.manager.find(PreOrderProduct, {
-        relations: ["product"],
-      });
-
-      const currentDate = new Date();
-
-      for (const preOrder of preOrderProducts) {
-        const endTime = new Date(preOrder.endTime);
-
-        if (currentDate > endTime && preOrder.status === "ACTIVE") {
-          await queryRunner.manager.update(PreOrderProduct, preOrder.id, {
-            status: StatusEnum.INACTIVE,
-          });
-
-          await queryRunner.manager.update(Product, preOrder.product.id, {
-            status: ProductEnum.OUT_OF_STOCK,
-          });
-
-          console.log(
-            `PreOrderProduct ${preOrder.id} marked as INACTIVE and Product ${preOrder.product.id} marked as OUT_OF_STOCK.`
-          );
-        }
-      }
-    } catch (error) {
-      console.error("Error updating expired pre-order products:", error);
-    } finally {
-      await queryRunner.release();
-    }
-  });
-};
-
-startPreOrderCheck();
-endPreOrderCheck();
