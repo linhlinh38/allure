@@ -22,7 +22,14 @@ class PreOrderProductService extends BaseService<PreOrderProduct> {
       .createQueryBuilder("preOrderProduct")
       .leftJoinAndSelect("preOrderProduct.product", "product")
       .leftJoinAndSelect("product.brand", "brand")
+      .leftJoinAndSelect(
+        "preOrderProduct.productClassifications",
+        "productClassifications"
+      )
       .where("preOrderProduct.status = :status", { status: StatusEnum.ACTIVE })
+      .andWhere("product.status = :productStatus", {
+        productStatus: ProductEnum.PRE_ORDER,
+      })
       .andWhere("brand.id = :brandId", { brandId })
       .getMany();
 
@@ -74,6 +81,17 @@ class PreOrderProductService extends BaseService<PreOrderProduct> {
           ...data,
           product,
         });
+
+        const classificationsWithPreOrderPoduct =
+          data.productClassifications.map((classification) => ({
+            ...classification,
+            preOrderProduct,
+          }));
+
+        await queryRunner.manager.save(
+          ProductClassification,
+          classificationsWithPreOrderPoduct
+        );
       } else {
         preOrderProduct = await queryRunner.manager.save(PreOrderProduct, data);
 
@@ -82,6 +100,7 @@ class PreOrderProductService extends BaseService<PreOrderProduct> {
             ...classification,
             preOrderProduct,
           }));
+
         await queryRunner.manager.save(
           ProductClassification,
           classificationsWithPreOrderPoduct
@@ -121,7 +140,8 @@ const startPreOrderCheck = () => {
         if (
           currentDate >= startTime &&
           currentDate <= endTime &&
-          preOrder.product.status !== ProductEnum.PRE_ORDER
+          preOrder.product.status !== ProductEnum.PRE_ORDER &&
+          preOrder.status === StatusEnum.ACTIVE
         ) {
           await queryRunner.manager.update(Product, preOrder.product.id, {
             status: ProductEnum.PRE_ORDER,
@@ -147,16 +167,32 @@ const endPreOrderCheck = () => {
     try {
       await queryRunner.connect();
 
-      const preOrderProducts = await queryRunner.manager.find(PreOrderProduct, {
-        relations: ["product"],
-      });
-
+      const preOrderProducts = await queryRunner.manager
+        .createQueryBuilder(PreOrderProduct, "preOrderProduct")
+        .leftJoinAndSelect(
+          "preOrderProduct.productClassifications",
+          "productClassification"
+        )
+        .leftJoinAndSelect("preOrderProduct.product", "product")
+        .where("preOrderProduct.status = :status", {
+          status: StatusEnum.ACTIVE,
+        })
+        .getMany();
       const currentDate = new Date();
 
       for (const preOrder of preOrderProducts) {
+        const preOrderClassifications = preOrder.productClassifications || [];
+
+        const checkOutOfStocks = preOrderClassifications.filter(
+          (p) => p.quantity !== 0
+        );
+
         const endTime = new Date(preOrder.endTime);
 
-        if (currentDate > endTime && preOrder.status === "ACTIVE") {
+        if (
+          (currentDate > endTime && preOrder.status === "ACTIVE") ||
+          checkOutOfStocks.length === 0
+        ) {
           await queryRunner.manager.update(PreOrderProduct, preOrder.id, {
             status: StatusEnum.INACTIVE,
           });

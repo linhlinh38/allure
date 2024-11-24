@@ -4,6 +4,7 @@ import {
   Column,
   ManyToOne,
   JoinColumn,
+  OneToMany,
 } from "typeorm";
 import { Product } from "./product.entity";
 import { StatusEnum } from "../utils/enum";
@@ -18,6 +19,10 @@ export class PreOrderProduct extends BaseEntity {
   @Column({ type: "varchar" })
   endTime: string;
 
+  @OneToMany(
+    () => ProductClassification,
+    (productClassification) => productClassification.preOrderProduct
+  )
   @JoinColumn({ name: "product_classifications" })
   productClassifications: ProductClassification[];
 
