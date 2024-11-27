@@ -4,37 +4,42 @@ import {
   JoinColumn,
   ManyToOne,
   OneToMany,
-} from 'typeorm';
-import { BaseEntity } from './base.entity';
-import { FileEnum, StatusEnum } from '../utils/enum';
-import { Account } from './account.entity';
-import { Order } from './order.entity';
+  OneToOne,
+} from "typeorm";
+import { BaseEntity } from "./base.entity";
+import { FileEnum, StatusEnum } from "../utils/enum";
+import { Account } from "./account.entity";
+import { Order } from "./order.entity";
+import { GroupBuyingCriteria } from "./groupBuyingCriteria.entity";
 
-@Entity('group_buyings')
+@Entity("group_buyings")
 export class GroupBuying extends BaseEntity {
-  @Column({ type: 'varchar', length: 100, nullable: true })
+  @Column({ type: "varchar", length: 100, nullable: true })
   name: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: false })
+  @Column({ type: "varchar", length: 100, nullable: false })
   fileUrl: string;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: FileEnum,
   })
   type: FileEnum;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: StatusEnum,
     default: StatusEnum.ACTIVE,
   })
   status: StatusEnum;
 
   @ManyToOne(() => Account, (account) => account.files)
-  @JoinColumn({ name: 'accountId' })
+  @JoinColumn({ name: "accountId" })
   account: Account;
 
   @OneToMany(() => Order, (order) => order.groupBuying)
   orders: Order[];
+
+  @OneToOne(() => GroupBuyingCriteria, (criteria) => criteria.groupBuying)
+  criteria: GroupBuyingCriteria;
 }
