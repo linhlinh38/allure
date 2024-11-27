@@ -1,6 +1,7 @@
 import { Entity, Column, ManyToOne, OneToOne } from "typeorm";
 import { BaseEntity } from "./base.entity";
 import { Account } from "./account.entity";
+import { StatusEnum } from "../utils/enum";
 
 @Entity("wallets")
 export class Wallet extends BaseEntity {
@@ -13,8 +14,12 @@ export class Wallet extends BaseEntity {
   @Column({ type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
   createdAt: Date; // Thời gian tạo ví
 
-  @Column({ type: "enum", enum: ["active", "inactive"], default: "active" })
-  status: "active" | "inactive"; // Trạng thái ví
+  @Column({
+    type: "enum",
+    enum: StatusEnum,
+    default: StatusEnum.ACTIVE,
+  })
+  status: StatusEnum;
 
   @OneToOne(() => Account, (account) => account.wallet)
   account: Account; // Quan hệ 1-1 với Account

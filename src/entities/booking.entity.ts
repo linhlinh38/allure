@@ -7,21 +7,21 @@ import {
 } from "typeorm";
 import { BaseEntity } from "./base.entity";
 import { Account } from "./account.entity";
+import { ConsultantService } from "./consultantService.entity";
 // import { Survey } from "./survey.entity";
-// import { ConsultantService } from "./consultantService.entity";
 
 @Entity("bookings")
 export class Booking extends BaseEntity {
-  //   @ManyToOne(() => Account, (account) => account.bookings, { nullable: false })
-  //   account: Account; // Quan hệ N-1 với Account
+  @ManyToOne(() => Account, (account) => account.bookings, { nullable: false })
+  account: Account; // Quan hệ N-1 với Account
 
-  //   @ManyToOne(() => Survey, (survey) => survey.bookings, { nullable: true })
-  //   survey: Survey; // Quan hệ N-1 với Survey
+  // @ManyToOne(() => Survey, (survey) => survey.bookings, { nullable: true })
+  // survey: Survey; // Quan hệ N-1 với Survey
 
-  //   @ManyToOne(() => ConsultantService, (service) => service.bookings, {
-  //     nullable: true,
-  //   })
-  //   consultantService: ConsultantService; // Quan hệ N-1 với ConsultantService
+  @ManyToOne(() => ConsultantService, (service) => service.bookings, {
+    nullable: true,
+  })
+  consultantService: ConsultantService; // Quan hệ N-1 với ConsultantService
 
   @Column({ type: "decimal", precision: 10, scale: 2, nullable: false })
   totalPrice: number; // Tổng giá trị booking

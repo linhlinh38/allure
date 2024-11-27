@@ -22,6 +22,8 @@ import { CartItem } from "./cartItem.entity";
 import { Blog } from "./blog.entity";
 import { Wallet } from "./wallet.entity";
 import { Transaction } from "./transaction.entity";
+import { ConsultantService } from "./consultantService.entity";
+import { Booking } from "./booking.entity";
 
 @Entity("accounts")
 export class Account extends BaseEntity {
@@ -109,4 +111,13 @@ export class Account extends BaseEntity {
   @OneToOne(() => Wallet, (wallet) => wallet.account, { cascade: true })
   @JoinColumn()
   wallet: Wallet; // Quan hệ 1-1 với Wallet
+
+  @OneToMany(
+    () => ConsultantService,
+    (consultantService) => consultantService.account
+  )
+  consultantServices: ConsultantService[]; // Quan hệ 1-N với ConsultantService
+
+  @OneToMany(() => Booking, (booking) => booking.account)
+  bookings: Booking[]; // Quan hệ 1-M với Booking
 }
