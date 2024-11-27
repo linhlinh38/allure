@@ -9,7 +9,6 @@ import {
 import { Product } from "./product.entity";
 import { StatusEnum } from "../utils/enum";
 import { BaseEntity } from "./base.entity";
-import { ProductClassification } from "./productClassification.entity";
 
 @Entity("product_discounts")
 export class ProductDiscount extends BaseEntity {
