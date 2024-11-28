@@ -1,45 +1,41 @@
-import {
-  Column,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  OneToOne,
-} from 'typeorm';
-import { BaseEntity } from './base.entity';
-import { LiveStream } from './livestream.entity';
-import { ProductClassification } from './productClassification.entity';
-import { ProductDiscount } from './productDiscount.entity';
-import { Order } from './order.entity';
-import { Feedback } from './feedback.entity';
+import { Column, Entity, JoinColumn, ManyToOne, OneToOne } from "typeorm";
+import { BaseEntity } from "./base.entity";
+import { LiveStream } from "./livestream.entity";
+import { ProductClassification } from "./productClassification.entity";
+import { ProductDiscount } from "./productDiscount.entity";
+import { Order } from "./order.entity";
+import { Feedback } from "./feedback.entity";
 
-@Entity('order_details')
+@Entity("order_details")
 export class OrderDetail extends BaseEntity {
-  @Column({ type: 'double precision', nullable: false })
+  @Column({ type: "double precision", nullable: false })
   price: number;
 
-  @Column({ type: 'double precision' })
+  @Column({ type: "double precision" })
   discount: number;
 
-  @Column({ type: 'integer', nullable: false })
+  @Column({ type: "integer", nullable: false })
   quantity: number;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: "varchar", length: 255 })
   type: string;
 
-  @Column({ type: 'boolean' })
+  @Column({ type: "boolean" })
   isFeedback: boolean;
 
-  @ManyToOne(() => ProductDiscount)
+  @ManyToOne(() => ProductDiscount, { nullable: true })
   productDiscount: ProductDiscount;
 
   @ManyToOne(() => ProductClassification)
   productClassification: ProductClassification;
 
-  @ManyToOne(() => ProductClassification)
+  @ManyToOne(() => ProductClassification, { nullable: true })
   productClassificationPreOrder: ProductClassification;
 
-  @ManyToOne(() => LiveStream, (livestream) => livestream.orders)
-  @JoinColumn({ name: 'livestream_id' })
+  @ManyToOne(() => LiveStream, (livestream) => livestream.orders, {
+    nullable: true,
+  })
+  @JoinColumn({ name: "livestream_id" })
   livestream: LiveStream;
 
   @ManyToOne(() => Order, (order) => order.orderDetails)
@@ -48,6 +44,6 @@ export class OrderDetail extends BaseEntity {
   @OneToOne(() => Feedback, (feedback) => feedback.orderDetail, {
     nullable: true,
   })
-  @JoinColumn({ name: 'feedback_id' }) 
+  @JoinColumn({ name: "feedback_id" })
   feedback: Feedback;
 }

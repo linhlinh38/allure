@@ -8,7 +8,6 @@ export class GroupBuyingCriteria extends BaseEntity {
   @OneToOne(() => GroupBuying, (groupBuying) => groupBuying.criteria, {
     cascade: true,
   })
-  @JoinColumn() // Required for One-to-One relationships to specify owning side
   groupBuying: GroupBuying;
 
   @ManyToOne(() => GroupProduct, (groupProduct) => groupProduct.criteria, {

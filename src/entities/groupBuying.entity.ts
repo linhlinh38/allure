@@ -40,6 +40,9 @@ export class GroupBuying extends BaseEntity {
   @OneToMany(() => Order, (order) => order.groupBuying)
   orders: Order[];
 
-  @OneToOne(() => GroupBuyingCriteria, (criteria) => criteria.groupBuying)
+  @OneToOne(() => GroupBuyingCriteria, (criteria) => criteria.groupBuying, {
+    nullable: true,
+  })
+  @JoinColumn() // Required for One-to-One relationships to specify owning side
   criteria: GroupBuyingCriteria;
 }

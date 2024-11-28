@@ -51,7 +51,9 @@ export class Order extends BaseEntity {
   })
   status: StatusEnum;
 
-  @ManyToOne(() => GroupBuying, (groupBuying) => groupBuying.orders)
+  @ManyToOne(() => GroupBuying, (groupBuying) => groupBuying.orders, {
+    nullable: true,
+  })
   @JoinColumn({ name: "group_buying_id" })
   groupBuying: GroupBuying;
 
