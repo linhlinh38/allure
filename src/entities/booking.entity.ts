@@ -1,22 +1,15 @@
-import {
-  Entity,
-  Column,
-  ManyToOne,
-  CreateDateColumn,
-  UpdateDateColumn,
-} from "typeorm";
+import { Entity, Column, ManyToOne, OneToMany } from "typeorm";
 import { BaseEntity } from "./base.entity";
 import { Account } from "./account.entity";
 import { ConsultantService } from "./consultantService.entity";
+import { Survey } from "./survey.entity";
+import { SubmittedSurvey } from "./submittedSurvey.entity";
 // import { Survey } from "./survey.entity";
 
 @Entity("bookings")
 export class Booking extends BaseEntity {
   @ManyToOne(() => Account, (account) => account.bookings, { nullable: false })
   account: Account; // Quan hệ N-1 với Account
-
-  // @ManyToOne(() => Survey, (survey) => survey.bookings, { nullable: true })
-  // survey: Survey; // Quan hệ N-1 với Survey
 
   @ManyToOne(() => ConsultantService, (service) => service.bookings, {
     nullable: true,
@@ -63,4 +56,13 @@ export class Booking extends BaseEntity {
     default: "unscheduled",
   })
   scheduleStatus: "scheduled" | "unscheduled"; // Trạng thái lịch hẹn
+
+  @ManyToOne(() => Survey, (survey) => survey.bookings)
+  survey: Survey;
+
+  @OneToMany(
+    () => SubmittedSurvey,
+    (submittedSurvey) => submittedSurvey.booking
+  )
+  submittedSurveys: SubmittedSurvey[];
 }
