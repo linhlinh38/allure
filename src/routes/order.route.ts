@@ -1,12 +1,11 @@
 import express from 'express';
-import { handleMulterErrors, uploadFile } from '../configs/muterConfig';
-import FileController from '../controllers/file.controller';
+import authentication from '../middleware/authentication';
+import OrderController from '../controllers/order.controller';
 
 const orderRouter = express.Router();
+orderRouter.use(authentication);
 orderRouter.post(
-  '/create',
-  handleMulterErrors,
-  FileController.upload
+  '/create-normal',
+  OrderController.createNormal
 );
-orderRouter.delete('/delete', FileController.delete);
 export default orderRouter;

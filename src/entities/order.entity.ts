@@ -1,4 +1,12 @@
-import { Column, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  JoinTable,
+  ManyToMany,
+  ManyToOne,
+  OneToMany,
+} from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { OrderEnum, StatusEnum } from '../utils/enum';
 import { GroupBuying } from './groupBuying.entity';
@@ -24,8 +32,8 @@ export class Order extends BaseEntity {
   @Column({ type: 'varchar', length: 50, nullable: false })
   paymentMethod: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: false })
-  payment: string;
+  @Column({ type: 'varchar', length: 255 })
+  notes: string;
 
   @Column({
     type: 'enum',
@@ -41,11 +49,15 @@ export class Order extends BaseEntity {
   })
   status: StatusEnum;
 
-  @ManyToOne(() => GroupBuying, (groupBuying) => groupBuying.orders)
+  @ManyToOne(() => GroupBuying, (groupBuying) => groupBuying.orders, {
+    nullable: true,
+  })
   @JoinColumn({ name: 'group_buying_id' })
   groupBuying: GroupBuying;
 
-  @ManyToOne(() => LiveStream, (livestream) => livestream.orders)
+  @ManyToOne(() => LiveStream, (livestream) => livestream.orders, {
+    nullable: true,
+  })
   @JoinColumn({ name: 'livestream_id' })
   livestream: LiveStream;
 
@@ -58,15 +70,17 @@ export class Order extends BaseEntity {
   vouchers: Voucher[];
 
   @ManyToOne(() => Account, (account) => account.orders)
-  @JoinColumn({ name: 'accountId' })
+  @JoinColumn({ name: 'account_id' })
   account: Account;
 
   @ManyToOne(() => Order, (order) => order.children, { nullable: true })
   parent: Order;
 
-  @OneToMany(() => Order, (order) => order.parent)
+  @OneToMany(() => Order, (order) => order.parent, { cascade: true })
   children: Order[];
 
-  @OneToMany(() => OrderDetail, (orderDetail) => orderDetail.order)
+  @OneToMany(() => OrderDetail, (orderDetail) => orderDetail.order, {
+    cascade: true,
+  })
   orderDetails: OrderDetail[];
 }

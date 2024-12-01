@@ -29,6 +29,7 @@ export enum AddressEnum {
 
 export enum ProductEnum {
   PRE_ORDER = "PRE_ORDER",
+  FLASH_SALE = "FLASH_SALE",
   OFFICIAL = "OFFICIAL",
   OUT_OF_STOCK = "OUT_OF_STOCK",
   INACTIVE = "INACTIVE",
@@ -60,4 +61,5 @@ export enum OrderEnum {
   NORMAL = "NORMAL",
   GROUP_BUYING = "GROUP_BUYING",
   FLASH_SALE = "FLASH_SALE",
+  LIVE_STREAM = "LIVE_STREAM",
 }

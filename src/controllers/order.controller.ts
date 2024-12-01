@@ -1,14 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import { orderService } from '../services/order.service';
+import { createNormalResponse } from '../utils/response';
+import { plainToInstance } from 'class-transformer';
+import { OrderNormalRequest } from '../dtos/request/order.request';
+import { AuthRequest } from '../middleware/authentication';
 
 export default class OrderController {
-  static async create(req: Request, res: Response, next: NextFunction) {
-    const files = req.files as Express.Multer.File[];
+  static async createNormal(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      res.status(200).json({
-        message: 'Upload success',
-        data: "",
+      const orderNormalBody = plainToInstance(OrderNormalRequest, req.body, {
+        excludeExtraneousValues: true,
       });
+      await orderService.createNormal(orderNormalBody, req.loginUser);
+      return createNormalResponse(res, 'Create order successfully');
     } catch (err) {
       next(err);
     }

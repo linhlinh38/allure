@@ -1,115 +1,131 @@
-import { Not } from 'typeorm';
+import { LessThanOrEqual, MoreThanOrEqual, Not } from 'typeorm';
 import { AppDataSource } from '../dataSource';
-import { SearchDTO } from '../dtos/other/search.dto';
-import { Brand } from '../entities/brand.entity';
 import { BadRequestError } from '../errors/error';
-import { accountRepository } from '../repositories/account.repository';
-import { brandRepository } from '../repositories/brand.repository';
 import { BaseService } from './base.service';
-import { followRepository } from '../repositories/follow.repository';
-import { accountService } from './account.service';
-import { Voucher } from '../entities/voucher.entity';
 import { Order } from '../entities/order.entity';
+import { OrderNormalRequest } from '../dtos/request/order.request';
+import { voucherRepository } from '../repositories/voucher.repository';
+import { productClassificationRepository } from '../repositories/productClassification.repository';
+import { productDiscountRepository } from '../repositories/productDiscount.repository';
+import { Voucher } from '../entities/voucher.entity';
+import { voucherService } from './voucher.service';
+import { OrderDetail } from '../entities/orderDetail.entity';
+import { ProductClassification } from '../entities/productClassification.entity';
+import { accountRepository } from '../repositories/account.repository';
 
 const repository = AppDataSource.getRepository(Order);
 class OrderService extends BaseService<Order> {
+  async createNormal(orderNormalBody: OrderNormalRequest, accountId: string) {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const account = await accountRepository.findOne({
+        where: { id: accountId },
+      });
+      const now = new Date();
+      let platformVoucher: Voucher = null;
+      // init parent order
+      const parentOrder: Order = new Order();
+      Object.assign(parentOrder, orderNormalBody);
+      parentOrder.children = [];
+      parentOrder.account = account;
+      
+      //validate platform voucher
+      if (orderNormalBody.platformVoucherId) {
+        platformVoucher = await voucherRepository.findOne({
+          where: { id: orderNormalBody.platformVoucherId },
+          relations: { brand: true },
+        });
+        await voucherService.validatePlatformVoucher(
+          orderNormalBody.platformVoucherId,
+          accountId
+        );
+      }
+      //validate shop vouchers
+      orderNormalBody.orders.forEach(async (order) => {
+        if (order.shopVoucherId) {
+          await voucherService.validateShopVoucher(order.shopVoucherId, accountId);
+        }
+      });
+      orderNormalBody.orders.forEach(async (order) => {
+        let shopVoucher: Voucher = null;
+        if (order.shopVoucherId) {
+          shopVoucher = await voucherRepository.findOne({
+            where: { id: order.shopVoucherId },
+            relations: ['brand']
+          });
+        }
+        //create shop order
+        const childOrder: Order = new Order();
+        Object.assign(childOrder, orderNormalBody);
+        childOrder.orderDetails = [];
+        childOrder.account = account;
+        order.items.forEach(async (item) => {
+          const productClassification =
+            await productClassificationRepository.findOne({
+              where: { id: item.productClassificationId },
+              relations: { product: true },
+            });
+          if (!productClassification)
+            throw new BadRequestError('Product not found');
+          if (item.quantity > productClassification.quantity) {
+            throw new BadRequestError('Product is out of stock');
+          }
+          let price = productClassification.price;
+          //create order detail
+          const orderDetail = new OrderDetail();
+          //check product discount event
+          const productDiscountEvent = await productDiscountRepository.findOne({
+            where: {
+              product: { id: productClassification.product.id }, // Lọc theo productId
+              startTime: LessThanOrEqual(now.toISOString()), // startTime <= now
+              endTime: MoreThanOrEqual(now.toISOString()), // endTime >= now
+            },
+          });
+          if (productDiscountEvent) {
+            price = price * productDiscountEvent.discount;
+            orderDetail.productDiscount = productDiscountEvent;
+          }
+          orderDetail.price = price;
+          orderDetail.quantity = item.quantity;
+          orderDetail.totalPriceAfterDiscount = price;
+          orderDetail.productClassification = productClassification;
+          //update quantity of product classification
+          productClassification.quantity -= item.quantity;
+          await queryRunner.manager.save(
+            ProductClassification,
+            productClassification
+          );
+          //push order detail into child order
+          childOrder.orderDetails.push(orderDetail);
+        });
+        if (shopVoucher) {
+          voucherService.calculateApplyVoucher(shopVoucher, childOrder);
+          childOrder.vouchers = [shopVoucher];
+        }
+        //push child order into parent order
+        parentOrder.children.push(childOrder);
+      });
+      if (platformVoucher) {
+        voucherService.calculateApplyVoucher(platformVoucher, parentOrder);
+        parentOrder.vouchers = [platformVoucher];
+      }
+
+      await queryRunner.manager.save(Order, parentOrder);
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      console.log('go to error');
+      
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
   constructor() {
     super(repository);
-  }
-
-  async search(searches: SearchDTO[]) {
-    const query = repository.createQueryBuilder('brand');
-
-    searches.forEach((search) => {
-      const { option, value } = search;
-
-      switch (option) {
-        case 'name':
-          query.andWhere('brand.name ILIKE :name', { name: `%${value}%` });
-          break;
-        case 'status':
-          query.andWhere('brand.status = :status', { status: value });
-          break;
-        case 'email':
-          query.andWhere('brand.email = :email', { email: value });
-          break;
-        case 'address':
-          query.andWhere('brand.address ILIKE :address', {
-            address: `%${value}%`,
-          });
-          break;
-        default:
-          break;
-      }
-    });
-    return await query.getMany();
-  }
-
-  async requestCreateBrand(managerId: string, brand: Brand) {
-    const existBrandByName = await brandRepository.findOneBy({
-      ['name']: brand.name,
-    });
-    if (existBrandByName) {
-      throw new BadRequestError('Name already exists');
-    }
-    const manager = await accountRepository.findOne({
-      where: { id: managerId },
-    });
-
-    if (!manager) {
-      throw new BadRequestError('Manager not found');
-    }
-
-    const newBrand = brandRepository.create(brand);
-    newBrand.accounts = [manager];
-
-    return await brandRepository.save(newBrand);
-  }
-
-  async updateDetail(id: string, brandBody: Brand) {
-    const brand: Brand = await orderService.findById(id);
-    if (!brand) throw new BadRequestError('Brand not found');
-    const existBrandByName = await brandRepository.findOne({
-      where: {
-        name: brandBody.name,
-        id: Not(id),
-      },
-    });
-    if (existBrandByName) {
-      throw new BadRequestError('Name already exists');
-    }
-    await this.update(id, brandBody);
-  }
-
-  async toggleFollowBrand(accountId: string, brandId: string) {
-    const existingFollow = await followRepository.findOne({
-      where: {
-        account: { id: accountId },
-        brand: { id: brandId },
-      },
-    });
-    if (existingFollow) {
-      await followRepository.remove(existingFollow);
-    } else {
-      const account = await accountService.findById(accountId);
-      if (!account) throw new BadRequestError('Account not found');
-      const brand = await orderService.findById(brandId);
-      if (!brand) throw new BadRequestError('Brand not found');
-      const newFollow = followRepository.create({ account, brand });
-      await followRepository.save(newFollow);
-    }
-  }
-
-  async getFollowedBrands(accountId: string) {
-    const account = await accountService.findById(accountId);
-    if (!account) throw new BadRequestError('Account not found');
-    const follows = await followRepository.find({
-      where: { account: { id: accountId } },
-      relations: {
-        brand: true,
-      },
-    });
-    return follows.flatMap((follow) => [follow.brand]);
   }
 }
 

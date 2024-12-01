@@ -21,13 +21,13 @@ export class Voucher extends BaseEntity {
   @Column({ type: 'double precision' })
   discountValue: number;
 
-  @Column({ type: 'double precision' })
+  @Column({ type: 'double precision', nullable: true })
   maxDiscount: number;
 
-  @Column({ type: 'double precision' })
+  @Column({ type: 'double precision', nullable: true })
   minOrderValue: number;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   description: string;
 
   @Column({

@@ -16,6 +16,7 @@ import { Role } from "./role.entity";
 import { Brand } from "./brand.entity";
 import { Follow } from "./follow.entity";
 import { Order } from "./order.entity";
+import { CartItem } from "./cartItem.entity";
 
 @Entity('accounts')
 export class Account extends BaseEntity {
@@ -72,6 +73,10 @@ export class Account extends BaseEntity {
 
   @OneToMany(() => File, (file) => file.account, { nullable: true })
   files?: File[];
+
+  @OneToMany(() => CartItem, (cartItem) => cartItem.account, { nullable: true })
+  @JoinColumn({ name: "cart_items" })
+  cartItems?: CartItem[];
 
   @ManyToMany(() => Brand, (brand) => brand.accounts)
   @JoinTable({
