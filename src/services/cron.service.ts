@@ -11,6 +11,7 @@ const startPreOrderCheck = () => {
 
     try {
       await queryRunner.connect();
+      await queryRunner.startTransaction();
 
       const preOrderProducts = await queryRunner.manager.find(PreOrderProduct, {
         relations: ["product", "productClassifications"],
@@ -44,8 +45,11 @@ const startPreOrderCheck = () => {
           );
         }
       }
+      await queryRunner.commitTransaction();
     } catch (error) {
+      await queryRunner.rollbackTransaction();
       console.error("Error updating pre-order products:", error);
+      throw error;
     } finally {
       await queryRunner.release();
     }
@@ -58,6 +62,7 @@ const endPreOrderCheck = () => {
 
     try {
       await queryRunner.connect();
+      await queryRunner.startTransaction();
 
       const preOrderProducts = await queryRunner.manager
         .createQueryBuilder(PreOrderProduct, "preOrderProduct")
@@ -96,8 +101,11 @@ const endPreOrderCheck = () => {
           console.log(`PreOrderProduct ${preOrder.id} marked as INACTIVE`);
         }
       }
+      await queryRunner.commitTransaction();
     } catch (error) {
-      console.error("Error updating expired pre-order products:", error);
+      await queryRunner.rollbackTransaction();
+      console.error("Error end pre-order products:", error);
+      throw error;
     } finally {
       await queryRunner.release();
     }
@@ -110,6 +118,7 @@ const startProductDiscount = () => {
 
     try {
       await queryRunner.connect();
+      await queryRunner.startTransaction();
 
       const productDiscounts = await queryRunner.manager.find(ProductDiscount, {
         relations: ["product"],
@@ -140,8 +149,11 @@ const startProductDiscount = () => {
           );
         }
       }
+      await queryRunner.commitTransaction();
     } catch (error) {
-      console.error("Error updating FLASH_SALE products:", error);
+      await queryRunner.rollbackTransaction();
+      console.error("Error update flashsale products:", error);
+      throw error;
     } finally {
       await queryRunner.release();
     }
@@ -154,6 +166,7 @@ const endProductDiscount = () => {
 
     try {
       await queryRunner.connect();
+      await queryRunner.startTransaction();
 
       const productDiscounts = await queryRunner.manager
         .createQueryBuilder(ProductDiscount, "productDiscount")
@@ -205,8 +218,11 @@ const endProductDiscount = () => {
           );
         }
       }
+      await queryRunner.commitTransaction();
     } catch (error) {
-      console.error("Error updating expired pre-order products:", error);
+      await queryRunner.rollbackTransaction();
+      console.error("Error end flashsale products:", error);
+      throw error;
     } finally {
       await queryRunner.release();
     }
