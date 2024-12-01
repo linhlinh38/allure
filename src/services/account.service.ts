@@ -19,7 +19,7 @@ class AccountService extends BaseService<Account> {
   async getById(accountId: string) {
     const account = await repository.findOne({
       where: { id: accountId },
-      relations: ["role"],
+      relations: ["role", "brands", "cartItems"],
     });
 
     if (!account) {
@@ -36,7 +36,7 @@ class AccountService extends BaseService<Account> {
       where: {
         [option]: value,
       },
-      relations: ["role"],
+      relations: ["role", "brands", "cartItems"],
     });
 
     return (await accounts).map((account) => ({
