@@ -16,6 +16,17 @@ class AccountService extends BaseService<Account> {
     super(repository);
   }
 
+  async getAll() {
+    const accounts = await repository.find({
+      relations: ["role", "brands"],
+    });
+
+    return (await accounts).map((account) => ({
+      ...account,
+      role: account.role ? account.role.role : null,
+    }));
+  }
+
   async getById(accountId: string) {
     const account = await repository.findOne({
       where: { id: accountId },
