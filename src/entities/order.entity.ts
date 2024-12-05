@@ -17,11 +17,17 @@ import { OrderDetail } from './orderDetail.entity';
 
 @Entity('orders')
 export class Order extends BaseEntity {
-  @Column({ type: 'double precision', nullable: false })
-  totalPrice: number;
+  @Column({ type: 'double precision' })
+  subTotal: number;
 
   @Column({ type: 'double precision' })
-  totalPriceDiscount: number;
+  totalPrice: number;
+
+  @Column({ type: 'double precision', default: 0 })
+  platformVoucherDiscount: number = 0;
+
+  @Column({ type: 'double precision', default: 0 })
+  shopVoucherDiscount: number = 0;
 
   @Column({ type: 'varchar', length: 255 })
   shippingAddress: string;
@@ -61,13 +67,11 @@ export class Order extends BaseEntity {
   @JoinColumn({ name: 'livestream_id' })
   livestream: LiveStream;
 
-  @ManyToMany(() => Voucher, (voucher) => voucher.orders)
-  @JoinTable({
-    name: 'order_voucher',
-    joinColumn: { name: 'order_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'voucher_id', referencedColumnName: 'id' },
+  @ManyToOne(() => Voucher, (voucher) => voucher.orders, {
+    nullable: true, // Nếu đơn hàng có thể không sử dụng voucher
   })
-  vouchers: Voucher[];
+  @JoinColumn({ name: 'voucher_id' })
+  voucher: Voucher;
 
   @ManyToOne(() => Account, (account) => account.orders)
   @JoinColumn({ name: 'account_id' })
@@ -76,7 +80,9 @@ export class Order extends BaseEntity {
   @ManyToOne(() => Order, (order) => order.children, { nullable: true })
   parent: Order;
 
-  @OneToMany(() => Order, (order) => order.parent, { cascade: true })
+  @OneToMany(() => Order, (order) => order.parent, {
+    cascade: true,
+  })
   children: Order[];
 
   @OneToMany(() => OrderDetail, (orderDetail) => orderDetail.order, {

@@ -1,10 +1,4 @@
-import {
-  Column,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  OneToOne,
-} from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToOne } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { LiveStream } from './livestream.entity';
 import { ProductClassification } from './productClassification.entity';
@@ -14,25 +8,25 @@ import { Feedback } from './feedback.entity';
 
 @Entity('order_details')
 export class OrderDetail extends BaseEntity {
-  @Column({ type: 'double precision', nullable: false })
-  price: number;
+  @Column({ type: 'double precision'})
+  subTotal: number;
 
   @Column({ type: 'double precision' })
-  totalPriceAfterDiscount: number;
+  totalPrice: number;
 
-  @Column({ type: 'double precision' })
-  platformVoucherDiscount: number;
+  @Column({ type: 'double precision', default: 0 })
+  platformVoucherDiscount: number = 0;
 
-  @Column({ type: 'double precision' })
-  shopVoucherDiscount: number;
+  @Column({ type: 'double precision', default: 0 })
+  shopVoucherDiscount: number = 0;
 
   @Column({ type: 'integer', nullable: false })
   quantity: number;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   type: string;
 
-  @Column({ type: 'boolean' })
+  @Column({ type: 'boolean', default: false })
   isFeedback: boolean;
 
   @ManyToOne(() => ProductDiscount, {

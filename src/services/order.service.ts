@@ -1,4 +1,4 @@
-import { LessThanOrEqual, MoreThanOrEqual, Not } from 'typeorm';
+import { IsNull, LessThanOrEqual, MoreThanOrEqual, Not, Or } from 'typeorm';
 import { AppDataSource } from '../dataSource';
 import { BadRequestError } from '../errors/error';
 import { BaseService } from './base.service';
@@ -12,9 +12,75 @@ import { voucherService } from './voucher.service';
 import { OrderDetail } from '../entities/orderDetail.entity';
 import { ProductClassification } from '../entities/productClassification.entity';
 import { accountRepository } from '../repositories/account.repository';
+import { brandRepository } from '../repositories/brand.repository';
 
 const repository = AppDataSource.getRepository(Order);
 class OrderService extends BaseService<Order> {
+  async getByBrand(brandId: string) {
+    const brand = await brandRepository.findOne({
+      where: { id: brandId },
+    });
+    if (!brand) throw new BadRequestError('Brand not found');
+
+    const orders = await repository.find({
+      relations: {
+        account: true,
+        orderDetails: {
+          productClassification: { product: true },
+          productClassificationPreOrder: { product: true },
+        },
+        voucher: true,
+      },
+      where: [
+        {
+          parent: Not(IsNull()),
+          orderDetails: {
+            productClassification: {
+              product: {
+                brand: { id: brandId },
+              },
+            },
+          },
+        },
+        {
+          parent: Not(IsNull()),
+          orderDetails: {
+            productClassificationPreOrder: {
+              product: {
+                brand: { id: brandId },
+              },
+            },
+          },
+        },
+      ],
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+    return orders;
+  }
+
+  async getAllTotalOrders() {
+    const orders = await repository.find({
+      relations: {
+        account: true,
+        children: {
+          orderDetails: {
+            productClassification: true,
+            productClassificationPreOrder: true,
+          },
+          voucher: true,
+        },
+      },
+      where: {
+        parent: IsNull(),
+      },
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+    return orders;
+  }
   async createNormal(orderNormalBody: OrderNormalRequest, accountId: string) {
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
@@ -25,12 +91,12 @@ class OrderService extends BaseService<Order> {
       });
       const now = new Date();
       let platformVoucher: Voucher = null;
-      // init parent order
+      //init parent order
       const parentOrder: Order = new Order();
       Object.assign(parentOrder, orderNormalBody);
       parentOrder.children = [];
       parentOrder.account = account;
-      
+
       //validate platform voucher
       if (orderNormalBody.platformVoucherId) {
         platformVoucher = await voucherRepository.findOne({
@@ -41,27 +107,34 @@ class OrderService extends BaseService<Order> {
           orderNormalBody.platformVoucherId,
           accountId
         );
+        parentOrder.voucher = platformVoucher;
       }
       //validate shop vouchers
-      orderNormalBody.orders.forEach(async (order) => {
+      for (const order of orderNormalBody.orders) {
         if (order.shopVoucherId) {
-          await voucherService.validateShopVoucher(order.shopVoucherId, accountId);
+          await voucherService.validateShopVoucher(
+            order.shopVoucherId,
+            accountId
+          );
         }
-      });
-      orderNormalBody.orders.forEach(async (order) => {
-        let shopVoucher: Voucher = null;
-        if (order.shopVoucherId) {
-          shopVoucher = await voucherRepository.findOne({
-            where: { id: order.shopVoucherId },
-            relations: ['brand']
-          });
-        }
+      }
+      for (const order of orderNormalBody.orders) {
         //create shop order
         const childOrder: Order = new Order();
         Object.assign(childOrder, orderNormalBody);
         childOrder.orderDetails = [];
         childOrder.account = account;
-        order.items.forEach(async (item) => {
+
+        let shopVoucher: Voucher = null;
+        if (order.shopVoucherId) {
+          shopVoucher = await voucherRepository.findOne({
+            where: { id: order.shopVoucherId },
+            relations: ['brand'],
+          });
+          childOrder.voucher = shopVoucher;
+        }
+        for (const item of order.items) {
+          //find product
           const productClassification =
             await productClassificationRepository.findOne({
               where: { id: item.productClassificationId },
@@ -84,12 +157,12 @@ class OrderService extends BaseService<Order> {
             },
           });
           if (productDiscountEvent) {
-            price = price * productDiscountEvent.discount;
+            price = Math.round(price * productDiscountEvent.discount);
             orderDetail.productDiscount = productDiscountEvent;
           }
-          orderDetail.price = price;
+          orderDetail.subTotal = price;
           orderDetail.quantity = item.quantity;
-          orderDetail.totalPriceAfterDiscount = price;
+          orderDetail.totalPrice = price;
           orderDetail.productClassification = productClassification;
           //update quantity of product classification
           productClassification.quantity -= item.quantity;
@@ -99,24 +172,24 @@ class OrderService extends BaseService<Order> {
           );
           //push order detail into child order
           childOrder.orderDetails.push(orderDetail);
-        });
+        }
         if (shopVoucher) {
-          voucherService.calculateApplyVoucher(shopVoucher, childOrder);
-          childOrder.vouchers = [shopVoucher];
+          voucherService.applyShopVoucher(childOrder);
+          childOrder.voucher = shopVoucher;
         }
         //push child order into parent order
         parentOrder.children.push(childOrder);
-      });
-      if (platformVoucher) {
-        voucherService.calculateApplyVoucher(platformVoucher, parentOrder);
-        parentOrder.vouchers = [platformVoucher];
       }
+      if (platformVoucher) {
+        voucherService.applyPlatformVoucher(parentOrder);
+        parentOrder.voucher = platformVoucher;
+      }
+
+      voucherService.calculateOrderPrice(parentOrder);
 
       await queryRunner.manager.save(Order, parentOrder);
       await queryRunner.commitTransaction();
     } catch (error) {
-      console.log('go to error');
-      
       await queryRunner.rollbackTransaction();
       throw error;
     } finally {

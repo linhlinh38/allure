@@ -50,6 +50,6 @@ export class Voucher extends BaseEntity {
   @JoinColumn({ name: 'brand_id' })
   brand: Brand;
 
-  @ManyToMany(() => Order, (order) => order.vouchers)
+  @OneToMany(() => Order, (order) => order.voucher)
   orders: Order[];
 }
