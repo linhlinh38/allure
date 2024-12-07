@@ -4,9 +4,21 @@ import { createNormalResponse } from '../utils/response';
 import { plainToInstance } from 'class-transformer';
 import { OrderNormalRequest } from '../dtos/request/order.request';
 import { AuthRequest } from '../middleware/authentication';
-import { orderRepository } from '../repositories/order.repository';
 
 export default class OrderController {
+  static async getMyOrders(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const search = req.body.search as string;
+      return createNormalResponse(
+        res,
+        'Get my orders success',
+        await orderService.getMyOrders(search.trim(), req.body.status, req.loginUser)
+      );
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async getByBrand(req: Request, res: Response, next: NextFunction) {
     try {
       return createNormalResponse(

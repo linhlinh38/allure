@@ -2,13 +2,11 @@ import {
   Column,
   Entity,
   JoinColumn,
-  JoinTable,
-  ManyToMany,
   ManyToOne,
   OneToMany,
 } from 'typeorm';
 import { BaseEntity } from './base.entity';
-import { OrderEnum, StatusEnum } from '../utils/enum';
+import { OrderEnum, ShippingStatusEnum, StatusEnum } from '../utils/enum';
 import { GroupBuying } from './groupBuying.entity';
 import { LiveStream } from './livestream.entity';
 import { Voucher } from './voucher.entity';
@@ -50,10 +48,10 @@ export class Order extends BaseEntity {
 
   @Column({
     type: 'enum',
-    enum: StatusEnum,
-    default: StatusEnum.ACTIVE,
+    enum: ShippingStatusEnum,
+    default: ShippingStatusEnum.TO_SHIP,
   })
-  status: StatusEnum;
+  status: ShippingStatusEnum;
 
   @ManyToOne(() => GroupBuying, (groupBuying) => groupBuying.orders, {
     nullable: true,
@@ -68,7 +66,7 @@ export class Order extends BaseEntity {
   livestream: LiveStream;
 
   @ManyToOne(() => Voucher, (voucher) => voucher.orders, {
-    nullable: true, // Nếu đơn hàng có thể không sử dụng voucher
+    nullable: true,
   })
   @JoinColumn({ name: 'voucher_id' })
   voucher: Voucher;

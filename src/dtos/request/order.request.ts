@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { StatusEnum } from '../../utils/enum';
+import { ShippingStatusEnum, StatusEnum } from '../../utils/enum';
 import { Expose } from 'class-transformer';
 
 export const OrderNormalCreateSchema = z.object({
@@ -38,13 +38,20 @@ export const OrderNormalCreateSchema = z.object({
   }),
 });
 
-export const VoucherUpdateSchema = z.object({
+export const OrderUpdateSchema = z.object({
   body: OrderNormalCreateSchema.partial(),
 });
 
-export const VoucherUpdateStatusSchema = z.object({
+export const OrderUpdateStatusSchema = z.object({
   body: z.object({
-    status: z.nativeEnum(StatusEnum).optional(),
+    status: z.nativeEnum(ShippingStatusEnum).optional(),
+  }),
+});
+
+export const SearchOrderSchema = z.object({
+  body: z.object({
+    search: z.string().trim().min(1, 'Search input is required').optional(),
+    status: z.nativeEnum(ShippingStatusEnum).optional(),
   }),
 });
 

@@ -1,4 +1,11 @@
-import { IsNull, LessThanOrEqual, MoreThanOrEqual, Not, Or } from 'typeorm';
+import {
+  IsNull,
+  LessThanOrEqual,
+  Like,
+  MoreThanOrEqual,
+  Not,
+  Or,
+} from 'typeorm';
 import { AppDataSource } from '../dataSource';
 import { BadRequestError } from '../errors/error';
 import { BaseService } from './base.service';
@@ -13,9 +20,96 @@ import { OrderDetail } from '../entities/orderDetail.entity';
 import { ProductClassification } from '../entities/productClassification.entity';
 import { accountRepository } from '../repositories/account.repository';
 import { brandRepository } from '../repositories/brand.repository';
+import { ShippingStatusEnum } from '../utils/enum';
 
 const repository = AppDataSource.getRepository(Order);
 class OrderService extends BaseService<Order> {
+  async getMyOrders(
+    search: string,
+    status: ShippingStatusEnum,
+    loginUser: string
+  ) {
+    const commonConditions = {
+      relations: {
+        account: true,
+        children: {
+          orderDetails: {
+            productClassification: true,
+            productClassificationPreOrder: true,
+          },
+          voucher: true,
+        },
+        brand: true
+      },
+      where: [
+        {
+          account: { id: loginUser },
+          parent: Not(IsNull()),
+        },
+      ],
+      order: {
+        createdAt: { direction: 'DESC' as const },
+      },
+    };
+    // if searh is null or empty, get all my order
+    if (!search) {
+      return await repository.find({
+        ...commonConditions,
+      });
+    }
+    // if status is not empty, get my orders by status
+    if (status) {
+      return await repository.find({
+        ...commonConditions,
+        where: [
+          ...commonConditions.where,
+          {
+            status: status,
+          },
+        ],
+      });
+    }
+    // else, get my orders by order Id, product name, brand name
+    const keywords = search.split(' ');
+    const searchConditions = keywords.flatMap((keyword) => [
+      // Tìm theo product name
+      {
+        orderDetails: {
+          productClassification: {
+            product: { name: Like(`%${keyword}%`) },
+          },
+        },
+      },
+      // Tìm theo productClassificationPreOrder
+      {
+        orderDetails: {
+          productClassificationPreOrder: {
+            product: { name: Like(`%${keyword}%`) },
+          },
+        },
+      },
+      // Tìm theo brand name
+      {
+        children: {
+          orderDetails: {
+            productClassification: {
+              product: { brand: { name: Like(`%${keyword}%`) } },
+            },
+          },
+        },
+      },
+      {
+        id: Like(`%${keyword}%`),
+      },
+    ]);
+    return await repository.find({
+      ...commonConditions,
+      where: {
+        ...commonConditions.where,
+        ...searchConditions,
+      },
+    });
+  }
   async getByBrand(brandId: string) {
     const brand = await brandRepository.findOne({
       where: { id: brandId },

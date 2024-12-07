@@ -19,6 +19,16 @@ export enum StatusEnum {
   ACTIVE = "ACTIVE",
   INACTIVE = "INACTIVE",
   BANNED = "BANNED",
+  DENIED = "DENIED",
+}
+
+export enum ShippingStatusEnum {
+  TO_PAY = 'TO_PAY',
+  TO_SHIP = 'TO_SHIP',
+  TO_RECEIVED = 'TO_RECEIVED',
+  RETURN_REFUND = 'RETURN_REFUND',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
 }
 
 export enum AddressEnum {
