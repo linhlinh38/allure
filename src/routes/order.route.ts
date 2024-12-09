@@ -7,14 +7,12 @@ import validate from '../utils/validate';
 const orderRouter = express.Router();
 orderRouter.get('/', OrderController.getAll);
 orderRouter.get('/get-by-brand/:brandId', OrderController.getByBrand);
+orderRouter.use(authentication);
 orderRouter.post(
   '/get-my-orders/',
   validate(SearchOrderSchema),
   OrderController.getMyOrders
 );
-orderRouter.use(authentication);
-orderRouter.post(
-  '/create-normal',
-  OrderController.createNormal
-);
+orderRouter.post('/create-normal', OrderController.createNormal);
+orderRouter.post('/create-pre-order', OrderController.createPreOrder);
 export default orderRouter;

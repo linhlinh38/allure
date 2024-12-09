@@ -1,16 +1,18 @@
 import {
+  ILike,
   IsNull,
   LessThanOrEqual,
-  Like,
   MoreThanOrEqual,
   Not,
-  Or,
 } from 'typeorm';
 import { AppDataSource } from '../dataSource';
 import { BadRequestError } from '../errors/error';
 import { BaseService } from './base.service';
 import { Order } from '../entities/order.entity';
-import { OrderNormalRequest } from '../dtos/request/order.request';
+import {
+  OrderNormalRequest,
+  PreOrderRequest,
+} from '../dtos/request/order.request';
 import { voucherRepository } from '../repositories/voucher.repository';
 import { productClassificationRepository } from '../repositories/productClassification.repository';
 import { productDiscountRepository } from '../repositories/productDiscount.repository';
@@ -20,7 +22,8 @@ import { OrderDetail } from '../entities/orderDetail.entity';
 import { ProductClassification } from '../entities/productClassification.entity';
 import { accountRepository } from '../repositories/account.repository';
 import { brandRepository } from '../repositories/brand.repository';
-import { ShippingStatusEnum } from '../utils/enum';
+import { OrderEnum, ShippingStatusEnum } from '../utils/enum';
+import { validate as isUUID } from 'uuid';
 
 const repository = AppDataSource.getRepository(Order);
 class OrderService extends BaseService<Order> {
@@ -32,82 +35,88 @@ class OrderService extends BaseService<Order> {
     const commonConditions = {
       relations: {
         account: true,
-        children: {
-          orderDetails: {
-            productClassification: true,
-            productClassificationPreOrder: true,
-          },
-          voucher: true,
+        orderDetails: {
+          productClassification: { product: { brand: true } },
+          productClassificationPreOrder: { product: { brand: true } },
         },
-        brand: true
+        voucher: true,
       },
-      where: [
-        {
-          account: { id: loginUser },
-          parent: Not(IsNull()),
-        },
-      ],
+      where: {
+        account: { id: loginUser },
+        parent: Not(IsNull()),
+      },
       order: {
         createdAt: { direction: 'DESC' as const },
       },
     };
+    // if status is not empty, get my orders by status
+    if (status) {
+      return await repository.find({
+        ...commonConditions,
+        where: {
+          ...commonConditions.where,
+          status: status,
+        },
+      });
+    }
     // if searh is null or empty, get all my order
     if (!search) {
       return await repository.find({
         ...commonConditions,
       });
     }
-    // if status is not empty, get my orders by status
-    if (status) {
+    // if search is uuid , search by id
+    if (isUUID(search)) {
       return await repository.find({
         ...commonConditions,
-        where: [
+        where: {
           ...commonConditions.where,
-          {
-            status: status,
-          },
-        ],
+          id: search,
+        },
       });
     }
-    // else, get my orders by order Id, product name, brand name
-    const keywords = search.split(' ');
-    const searchConditions = keywords.flatMap((keyword) => [
+    // else, get my orders by product name, brand name
+    const searchConditions = [
       // Tìm theo product name
       {
+        ...commonConditions.where,
         orderDetails: {
           productClassification: {
-            product: { name: Like(`%${keyword}%`) },
+            product: { name: ILike(`%${search}%`) },
           },
         },
       },
-      // Tìm theo productClassificationPreOrder
+      // Tìm theo productClassificationPreOrder product name
       {
+        ...commonConditions.where,
         orderDetails: {
           productClassificationPreOrder: {
-            product: { name: Like(`%${keyword}%`) },
+            product: { name: ILike(`%${search}%`) },
           },
         },
       },
       // Tìm theo brand name
       {
-        children: {
-          orderDetails: {
-            productClassification: {
-              product: { brand: { name: Like(`%${keyword}%`) } },
-            },
+        ...commonConditions.where,
+        orderDetails: {
+          productClassification: {
+            product: { brand: { name: ILike(`%${search}%`) } },
           },
         },
       },
+      // Tìm theo brand name
       {
-        id: Like(`%${keyword}%`),
+        ...commonConditions.where,
+        orderDetails: {
+          productClassificationPreOrder: {
+            product: { brand: { name: ILike(`%${search}%`) } },
+          },
+        },
       },
-    ]);
+    ];
     return await repository.find({
       ...commonConditions,
-      where: {
-        ...commonConditions.where,
-        ...searchConditions,
-      },
+      where: searchConditions,
     });
   }
   async getByBrand(brandId: string) {
@@ -160,8 +169,8 @@ class OrderService extends BaseService<Order> {
         account: true,
         children: {
           orderDetails: {
-            productClassification: true,
-            productClassificationPreOrder: true,
+            productClassification: { product: { brand: true } },
+            productClassificationPreOrder: { product: { brand: true } },
           },
           voucher: true,
         },
@@ -174,6 +183,110 @@ class OrderService extends BaseService<Order> {
       },
     });
     return orders;
+  }
+
+  async createPreOrder(preOrderBody: PreOrderRequest, accountId: string) {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const account = await accountRepository.findOne({
+        where: { id: accountId },
+      });
+      let platformVoucher: Voucher = null;
+      //init parent order
+      const parentOrder: Order = new Order();
+      Object.assign(parentOrder, preOrderBody);
+      parentOrder.children = [];
+      parentOrder.account = account;
+      //define type pre order
+      parentOrder.type = OrderEnum.PRE_ORDER;
+
+      //validate platform voucher
+      if (preOrderBody.platformVoucherId) {
+        platformVoucher = await voucherRepository.findOne({
+          where: { id: preOrderBody.platformVoucherId },
+          relations: { brand: true },
+        });
+        await voucherService.validatePlatformVoucher(
+          preOrderBody.platformVoucherId,
+          accountId
+        );
+        parentOrder.voucher = platformVoucher;
+      }
+      //validate shop voucher
+      if (preOrderBody.shopVoucherId) {
+        await voucherService.validateShopVoucher(
+          preOrderBody.shopVoucherId,
+          accountId
+        );
+      }
+      //create shop order
+      const childOrder: Order = new Order();
+      Object.assign(childOrder, preOrderBody);
+      childOrder.orderDetails = [];
+      childOrder.account = account;
+
+      let shopVoucher: Voucher = null;
+      if (preOrderBody.shopVoucherId) {
+        shopVoucher = await voucherRepository.findOne({
+          where: { id: preOrderBody.shopVoucherId },
+          relations: ['brand'],
+        });
+        childOrder.voucher = shopVoucher;
+      }
+      //find product
+      const productClassification =
+        await productClassificationRepository.findOne({
+          where: { id: preOrderBody.productClassificationId },
+          relations: { preOrderProduct: { product: true } },
+        });
+      if (!productClassification)
+        throw new BadRequestError('Product not found');
+      if (preOrderBody.quantity > productClassification.quantity) {
+        throw new BadRequestError('Product is out of stock');
+      }
+      if (!productClassification.preOrderProduct)
+        throw new BadRequestError('Product is not pre-order product');
+      if (productClassification.preOrderProduct.status != 'ACTIVE') {
+        throw new BadRequestError('Product is not active');
+      }
+      let price = productClassification.price;
+      //create order detail
+      const orderDetail = new OrderDetail();
+      orderDetail.subTotal = price;
+      orderDetail.quantity = preOrderBody.quantity;
+      orderDetail.totalPrice = price;
+      orderDetail.productClassification = productClassification;
+      //update quantity of product classification
+      productClassification.quantity -= preOrderBody.quantity;
+      await queryRunner.manager.save(
+        ProductClassification,
+        productClassification
+      );
+      //push order detail into child order
+      childOrder.orderDetails.push(orderDetail);
+      if (shopVoucher) {
+        voucherService.applyShopVoucher(childOrder);
+        childOrder.voucher = shopVoucher;
+      }
+      //push child order into parent order
+      parentOrder.children.push(childOrder);
+      if (platformVoucher) {
+        voucherService.applyPlatformVoucher(parentOrder);
+        parentOrder.voucher = platformVoucher;
+      }
+
+      voucherService.calculateOrderPrice(parentOrder);
+
+      await queryRunner.manager.save(Order, parentOrder);
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
   async createNormal(orderNormalBody: OrderNormalRequest, accountId: string) {
     const queryRunner = AppDataSource.createQueryRunner();

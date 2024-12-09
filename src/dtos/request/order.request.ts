@@ -80,3 +80,29 @@ export class OrderNormalRequest {
   @Expose()
   platformVoucherId?: string;
 }
+
+export class PreOrderRequest {
+  @Expose()
+  shippingAddress: string;
+
+  @Expose()
+  phone: string;
+
+  @Expose()
+  paymentMethod: string;
+
+  @Expose()
+  notes: string;
+
+  @Expose()
+  shopVoucherId?: string;
+
+  @Expose()
+  productClassificationId: string;
+
+  @Expose()
+  quantity: number;
+
+  @Expose()
+  platformVoucherId?: string;
+}
