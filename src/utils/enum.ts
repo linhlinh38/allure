@@ -48,6 +48,15 @@ export enum ProductEnum {
 export enum PreOrderProductEnum {
   ACTIVE = "ACTIVE",
   SOLD_OUT = "SOLD_OUT",
+  WAITING = "WAITING",
+  INACTIVE = "INACTIVE",
+  CANCELLED = "CANCELLED",
+}
+
+export enum ProductDiscountEnum {
+  ACTIVE = "ACTIVE",
+  SOLD_OUT = "SOLD_OUT",
+  WAITING = "WAITING",
   INACTIVE = "INACTIVE",
   CANCELLED = "CANCELLED",
 }
