@@ -66,9 +66,9 @@ class CategoryService extends BaseService<Category> {
 
       const depth = await this.calculateCategoryDepth(parentCategory);
 
-      if (depth > 4) {
+      if (depth + 1 > 4) {
         throw new BadRequestError(
-          "A category cannot have more than 3 levels of subcategories"
+          "A category cannot have more than 4 levels of subcategories"
         );
       }
 
@@ -91,6 +91,7 @@ class CategoryService extends BaseService<Category> {
 
       category = parentCategory;
       depth++;
+      console.log("depth ", depth);
     }
 
     return depth;
