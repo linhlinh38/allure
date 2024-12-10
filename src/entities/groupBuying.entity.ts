@@ -4,11 +4,13 @@ import {
   JoinColumn,
   ManyToOne,
   OneToMany,
+  OneToOne,
 } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { FileEnum, StatusEnum } from '../utils/enum';
 import { Account } from './account.entity';
 import { Order } from './order.entity';
+import { GroupBuyingCriteria } from './groupBuyingCriteria.entity';
 
 @Entity('group_buyings')
 export class GroupBuying extends BaseEntity {
@@ -37,4 +39,10 @@ export class GroupBuying extends BaseEntity {
 
   @OneToMany(() => Order, (order) => order.groupBuying)
   orders: Order[];
+
+  @OneToOne(() => GroupBuyingCriteria, (criteria) => criteria.groupBuying, {
+    nullable: true,
+  })
+  @JoinColumn() 
+  criteria: GroupBuyingCriteria;
 }

@@ -3,6 +3,7 @@ import { BaseEntity } from './base.entity';
 import { StatusEnum } from '../utils/enum';
 import { Brand } from './brand.entity';
 import { Order } from './order.entity';
+import { GroupBuyingCriteria } from './groupBuyingCriteria.entity';
 
 @Entity('vouchers')
 export class Voucher extends BaseEntity {
@@ -52,4 +53,7 @@ export class Voucher extends BaseEntity {
 
   @OneToMany(() => Order, (order) => order.voucher)
   orders: Order[];
+
+  @OneToMany(() => GroupBuyingCriteria, (criteria) => criteria.voucher)
+  criteria: GroupBuyingCriteria[];
 }
