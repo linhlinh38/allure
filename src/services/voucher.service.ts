@@ -1,4 +1,4 @@
-import { Not } from 'typeorm';
+import { In, Not } from 'typeorm';
 import { AppDataSource } from '../dataSource';
 
 import { BaseService } from './base.service';
@@ -9,7 +9,11 @@ import { plainToInstance } from 'class-transformer';
 import { VoucherResponse } from '../dtos/response/voucher.response';
 import { BadRequestError } from '../errors/error';
 import { SearchDTO } from '../dtos/other/search.dto';
-import { DiscountTypeEnum, VoucherEnum } from '../utils/enum';
+import {
+  DiscountTypeEnum,
+  ShippingStatusEnum,
+  VoucherEnum,
+} from '../utils/enum';
 import { Order } from '../entities/order.entity';
 import { orderRepository } from '../repositories/order.repository';
 import { VoucherRequest } from '../dtos/request/voucher.request';
@@ -48,6 +52,13 @@ class VoucherService extends BaseService<Voucher> {
       where: {
         account: { id: accountId },
         voucher: { id: voucherId },
+        status: Not(
+          In([
+            ShippingStatusEnum.CANCELLED,
+            ShippingStatusEnum.CANCELLED_BY_SHOP,
+            ShippingStatusEnum.RETURN_REFUND,
+          ])
+        ),
       },
       relations: ['voucher', 'account'],
     });
@@ -85,6 +96,13 @@ class VoucherService extends BaseService<Voucher> {
       where: {
         account: { id: accountId },
         voucher: { id: voucherId },
+        status: Not(
+          In([
+            ShippingStatusEnum.CANCELLED,
+            ShippingStatusEnum.CANCELLED_BY_SHOP,
+            ShippingStatusEnum.RETURN_REFUND,
+          ])
+        ),
       },
       relations: ['voucher', 'account'],
     });
@@ -108,10 +126,12 @@ class VoucherService extends BaseService<Voucher> {
     }
     if (voucher.discountType == DiscountTypeEnum.AMOUNT.toString()) {
       childOrder.orderDetails.forEach((orderDetail) => {
-        orderDetail.shopVoucherDiscount = Math.round(Math.min(
-          (orderDetail.subTotal / sumPrice) * voucher.discountValue,
-          orderDetail.subTotal
-        ));
+        orderDetail.shopVoucherDiscount = Math.round(
+          Math.min(
+            (orderDetail.subTotal / sumPrice) * voucher.discountValue,
+            orderDetail.subTotal
+          )
+        );
         orderDetail.totalPrice =
           orderDetail.subTotal - orderDetail.shopVoucherDiscount;
       });
@@ -124,10 +144,12 @@ class VoucherService extends BaseService<Voucher> {
         );
 
       childOrder.orderDetails.forEach((orderDetail) => {
-        orderDetail.shopVoucherDiscount = Math.round(Math.min(
-          (orderDetail.subTotal / sumPrice) * discountValueToAmount,
-          orderDetail.subTotal
-        ));
+        orderDetail.shopVoucherDiscount = Math.round(
+          Math.min(
+            (orderDetail.subTotal / sumPrice) * discountValueToAmount,
+            orderDetail.subTotal
+          )
+        );
         orderDetail.totalPrice =
           orderDetail.subTotal - orderDetail.shopVoucherDiscount;
       });
@@ -150,10 +172,12 @@ class VoucherService extends BaseService<Voucher> {
     }
     if (voucher.discountType == DiscountTypeEnum.AMOUNT.toString()) {
       allOrderDetails.forEach((orderDetail) => {
-        orderDetail.platformVoucherDiscount = Math.round(Math.min(
-          (orderDetail.totalPrice / sumPrice) * voucher.discountValue,
-          orderDetail.totalPrice
-        ));
+        orderDetail.platformVoucherDiscount = Math.round(
+          Math.min(
+            (orderDetail.totalPrice / sumPrice) * voucher.discountValue,
+            orderDetail.totalPrice
+          )
+        );
         orderDetail.totalPrice -= orderDetail.platformVoucherDiscount;
       });
     } else if (voucher.discountType == DiscountTypeEnum.PERCENTAGE.toString()) {
@@ -164,10 +188,12 @@ class VoucherService extends BaseService<Voucher> {
           voucher.maxDiscount
         );
       allOrderDetails.forEach((orderDetail) => {
-        orderDetail.platformVoucherDiscount = Math.round(Math.min(
-          (orderDetail.totalPrice / sumPrice) * discountValueToAmount,
-          orderDetail.totalPrice
-        ));
+        orderDetail.platformVoucherDiscount = Math.round(
+          Math.min(
+            (orderDetail.totalPrice / sumPrice) * discountValueToAmount,
+            orderDetail.totalPrice
+          )
+        );
         orderDetail.totalPrice -= orderDetail.platformVoucherDiscount;
       });
     } else throw new BadRequestError(`Discount type voucher is not supported`);
