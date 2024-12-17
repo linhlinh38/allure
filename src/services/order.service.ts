@@ -1,10 +1,4 @@
-import {
-  ILike,
-  IsNull,
-  LessThanOrEqual,
-  MoreThanOrEqual,
-  Not,
-} from 'typeorm';
+import { ILike, IsNull, LessThanOrEqual, MoreThanOrEqual, Not } from 'typeorm';
 import { AppDataSource } from '../dataSource';
 import { BadRequestError } from '../errors/error';
 import { BaseService } from './base.service';
@@ -24,6 +18,7 @@ import { accountRepository } from '../repositories/account.repository';
 import { brandRepository } from '../repositories/brand.repository';
 import { OrderEnum, ShippingStatusEnum } from '../utils/enum';
 import { validate as isUUID } from 'uuid';
+import { addressRepository } from '../repositories/address.repository';
 
 const repository = AppDataSource.getRepository(Order);
 class OrderService extends BaseService<Order> {
@@ -296,11 +291,20 @@ class OrderService extends BaseService<Order> {
       const account = await accountRepository.findOne({
         where: { id: accountId },
       });
+      const address = await addressRepository.findOne({
+        where: { id: orderNormalBody.addressId },
+      });
+      if (!address) throw new BadRequestError(`Address not found`);
       const now = new Date();
       let platformVoucher: Voucher = null;
       //init parent order
       const parentOrder: Order = new Order();
       Object.assign(parentOrder, orderNormalBody);
+
+      parentOrder.shippingAddress = address.fullAddress;
+      parentOrder.phone = address.phone;
+      parentOrder.notes = address.notes;
+
       parentOrder.children = [];
       parentOrder.account = account;
 
@@ -329,6 +333,11 @@ class OrderService extends BaseService<Order> {
         //create shop order
         const childOrder: Order = new Order();
         Object.assign(childOrder, orderNormalBody);
+        
+        childOrder.shippingAddress = address.fullAddress;
+        childOrder.phone = address.phone;
+        childOrder.notes = address.notes;
+
         childOrder.orderDetails = [];
         childOrder.account = account;
 
