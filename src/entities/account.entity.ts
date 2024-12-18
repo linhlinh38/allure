@@ -17,6 +17,7 @@ import { Brand } from "./brand.entity";
 import { Follow } from "./follow.entity";
 import { Order } from "./order.entity";
 import { CartItem } from "./cartItem.entity";
+import { VoucherWallet } from "./voucherWallet.entity";
 
 @Entity('accounts')
 export class Account extends BaseEntity {
@@ -91,4 +92,7 @@ export class Account extends BaseEntity {
 
   @OneToMany(() => Order, (order) => order.account)
   orders: Order[];
+
+  @OneToMany(() => VoucherWallet, (wallet) => wallet.owner)
+  voucherWallet: VoucherWallet[];
 }
