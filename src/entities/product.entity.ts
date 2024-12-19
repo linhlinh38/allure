@@ -7,6 +7,7 @@ import {
   UpdateDateColumn,
   OneToMany,
   JoinColumn,
+  ManyToMany,
 } from "typeorm";
 import { Category } from "./category.entity";
 import { Brand } from "./brand.entity";
@@ -16,6 +17,7 @@ import { ProductImage } from "./productImage.entity";
 import { BaseEntity } from "./base.entity";
 import { PreOrderProduct } from "./preOrderProduct.entity";
 import { ProductDiscount } from "./productDiscount.entity";
+import { GroupProduct } from "./groupProduct.entity";
 
 @Entity("products")
 export class Product extends BaseEntity {
@@ -70,4 +72,7 @@ export class Product extends BaseEntity {
     default: ProductEnum.OFFICIAL,
   })
   status: ProductEnum;
+
+  @ManyToMany(() => GroupProduct, (groupProduct) => groupProduct.products)
+  groupProducts: GroupProduct[];
 }
