@@ -100,3 +100,18 @@ export enum ClassificationTypeEnum {
   DEFAULT = "DEFAULT",
   CUSTOM = "CUSTOM",
 }
+
+export enum VoucherApplyTypeEnum {
+  ALL = "ALL",
+  SPECIFIC = "SPECIFIC",
+}
+
+export enum VoucherVisibilityEnum {
+  WALLET = "WALLET",
+  PUBLIC = "PUBLIC",
+}
+
+export enum VoucherWalletStatus {
+  USED = 'USED',
+  NOT_USED = 'NOT_USED',
+}

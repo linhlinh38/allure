@@ -11,13 +11,16 @@ import { BadRequestError } from '../errors/error';
 import { SearchDTO } from '../dtos/other/search.dto';
 import {
   DiscountTypeEnum,
-  ShippingStatusEnum,
+  VoucherApplyTypeEnum,
   VoucherEnum,
+  ShippingStatusEnum,
+  VoucherVisibilityEnum,
 } from '../utils/enum';
 import { Order } from '../entities/order.entity';
 import { orderRepository } from '../repositories/order.repository';
 import { VoucherRequest } from '../dtos/request/voucher.request';
 import { brandRepository } from '../repositories/brand.repository';
+import { productRepository } from '../repositories/product.repository';
 
 class VoucherService extends BaseService<Voucher> {
   constructor() {
@@ -132,6 +135,12 @@ class VoucherService extends BaseService<Voucher> {
             orderDetail.subTotal
           )
         );
+        orderDetail.shopVoucherDiscount = Math.round(
+          Math.min(
+            (orderDetail.subTotal / sumPrice) * voucher.discountValue,
+            orderDetail.subTotal
+          )
+        );
         orderDetail.totalPrice =
           orderDetail.subTotal - orderDetail.shopVoucherDiscount;
       });
@@ -144,6 +153,12 @@ class VoucherService extends BaseService<Voucher> {
         );
 
       childOrder.orderDetails.forEach((orderDetail) => {
+        orderDetail.shopVoucherDiscount = Math.round(
+          Math.min(
+            (orderDetail.subTotal / sumPrice) * discountValueToAmount,
+            orderDetail.subTotal
+          )
+        );
         orderDetail.shopVoucherDiscount = Math.round(
           Math.min(
             (orderDetail.subTotal / sumPrice) * discountValueToAmount,
@@ -178,6 +193,12 @@ class VoucherService extends BaseService<Voucher> {
             orderDetail.totalPrice
           )
         );
+        orderDetail.platformVoucherDiscount = Math.round(
+          Math.min(
+            (orderDetail.totalPrice / sumPrice) * voucher.discountValue,
+            orderDetail.totalPrice
+          )
+        );
         orderDetail.totalPrice -= orderDetail.platformVoucherDiscount;
       });
     } else if (voucher.discountType == DiscountTypeEnum.PERCENTAGE.toString()) {
@@ -188,6 +209,12 @@ class VoucherService extends BaseService<Voucher> {
           voucher.maxDiscount
         );
       allOrderDetails.forEach((orderDetail) => {
+        orderDetail.platformVoucherDiscount = Math.round(
+          Math.min(
+            (orderDetail.totalPrice / sumPrice) * discountValueToAmount,
+            orderDetail.totalPrice
+          )
+        );
         orderDetail.platformVoucherDiscount = Math.round(
           Math.min(
             (orderDetail.totalPrice / sumPrice) * discountValueToAmount,
@@ -281,6 +308,17 @@ class VoucherService extends BaseService<Voucher> {
       });
       if (!brand) throw new BadRequestError('Brand not found');
       voucherBody.brand = brand;
+    }
+    if (voucherBody.applyType == VoucherApplyTypeEnum.SPECIFIC) {
+      if (
+        !voucherRequest.applyProductIds || voucherRequest.applyProductIds.length == 0
+      ) {
+        throw new BadRequestError('Apply product ids must not be empty');
+      }
+      const applyProducts = await productRepository.find({
+        where: { id: In(voucherRequest.applyProductIds) },
+      });
+      voucherBody.applyProducts = applyProducts;
     }
     await this.create(voucherBody);
   }
