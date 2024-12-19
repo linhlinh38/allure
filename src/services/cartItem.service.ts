@@ -64,7 +64,11 @@ class CartItemService extends BaseService<CartItem> {
             PreOrderProduct,
             {
               where: { id: preOrderProduct.id },
-              relations: ["product", "product.brand"],
+              relations: [
+                "product",
+                "product.brand",
+                "product.productClassifications",
+              ],
             }
           );
 
@@ -76,7 +80,11 @@ class CartItemService extends BaseService<CartItem> {
             ProductDiscount,
             {
               where: { id: productDiscount.id },
-              relations: ["product", "product.brand"],
+              relations: [
+                "product",
+                "product.brand",
+                "product.productClassifications",
+              ],
             }
           );
           if (fullproductDiscount && fullproductDiscount.product.brand) {
