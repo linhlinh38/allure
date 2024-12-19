@@ -13,6 +13,7 @@ import {
   DiscountTypeEnum,
   VoucherApplyTypeEnum,
   VoucherEnum,
+  ShippingStatusEnum,
   VoucherVisibilityEnum,
 } from '../utils/enum';
 import { Order } from '../entities/order.entity';
@@ -54,6 +55,13 @@ class VoucherService extends BaseService<Voucher> {
       where: {
         account: { id: accountId },
         voucher: { id: voucherId },
+        status: Not(
+          In([
+            ShippingStatusEnum.CANCELLED,
+            ShippingStatusEnum.CANCELLED_BY_SHOP,
+            ShippingStatusEnum.RETURN_REFUND,
+          ])
+        ),
       },
       relations: ['voucher', 'account'],
     });
@@ -91,6 +99,13 @@ class VoucherService extends BaseService<Voucher> {
       where: {
         account: { id: accountId },
         voucher: { id: voucherId },
+        status: Not(
+          In([
+            ShippingStatusEnum.CANCELLED,
+            ShippingStatusEnum.CANCELLED_BY_SHOP,
+            ShippingStatusEnum.RETURN_REFUND,
+          ])
+        ),
       },
       relations: ['voucher', 'account'],
     });
@@ -120,6 +135,12 @@ class VoucherService extends BaseService<Voucher> {
             orderDetail.subTotal
           )
         );
+        orderDetail.shopVoucherDiscount = Math.round(
+          Math.min(
+            (orderDetail.subTotal / sumPrice) * voucher.discountValue,
+            orderDetail.subTotal
+          )
+        );
         orderDetail.totalPrice =
           orderDetail.subTotal - orderDetail.shopVoucherDiscount;
       });
@@ -132,6 +153,12 @@ class VoucherService extends BaseService<Voucher> {
         );
 
       childOrder.orderDetails.forEach((orderDetail) => {
+        orderDetail.shopVoucherDiscount = Math.round(
+          Math.min(
+            (orderDetail.subTotal / sumPrice) * discountValueToAmount,
+            orderDetail.subTotal
+          )
+        );
         orderDetail.shopVoucherDiscount = Math.round(
           Math.min(
             (orderDetail.subTotal / sumPrice) * discountValueToAmount,
@@ -166,6 +193,12 @@ class VoucherService extends BaseService<Voucher> {
             orderDetail.totalPrice
           )
         );
+        orderDetail.platformVoucherDiscount = Math.round(
+          Math.min(
+            (orderDetail.totalPrice / sumPrice) * voucher.discountValue,
+            orderDetail.totalPrice
+          )
+        );
         orderDetail.totalPrice -= orderDetail.platformVoucherDiscount;
       });
     } else if (voucher.discountType == DiscountTypeEnum.PERCENTAGE.toString()) {
@@ -176,6 +209,12 @@ class VoucherService extends BaseService<Voucher> {
           voucher.maxDiscount
         );
       allOrderDetails.forEach((orderDetail) => {
+        orderDetail.platformVoucherDiscount = Math.round(
+          Math.min(
+            (orderDetail.totalPrice / sumPrice) * discountValueToAmount,
+            orderDetail.totalPrice
+          )
+        );
         orderDetail.platformVoucherDiscount = Math.round(
           Math.min(
             (orderDetail.totalPrice / sumPrice) * discountValueToAmount,

@@ -15,6 +15,7 @@ import {
 } from '../utils/enum';
 import { Brand } from './brand.entity';
 import { Order } from './order.entity';
+import { GroupBuyingCriteria } from './groupBuyingCriteria.entity';
 import { VoucherWallet } from './voucherWallet.entity';
 import { Product } from './product.entity';
 
@@ -91,4 +92,7 @@ export class Voucher extends BaseEntity {
     inverseJoinColumn: { name: 'product_id', referencedColumnName: 'id' },
   })
   applyProducts: Product[];
+
+  @OneToMany(() => GroupBuyingCriteria, (criteria) => criteria.voucher)
+  criteria: GroupBuyingCriteria[];
 }

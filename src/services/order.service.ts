@@ -364,6 +364,7 @@ class OrderService extends BaseService<Order> {
           let price = productClassification.price;
           //create order detail
           const orderDetail = new OrderDetail();
+          orderDetail.type = OrderEnum.NORMAL;
           //check product discount event
           const productDiscountEvent = await productDiscountRepository.findOne({
             where: {
@@ -373,8 +374,21 @@ class OrderService extends BaseService<Order> {
             },
           });
           if (productDiscountEvent) {
-            price = Math.round(price * productDiscountEvent.discount);
-            orderDetail.productDiscount = productDiscountEvent;
+            const productClassificationFlashSale =
+              await productClassificationRepository.findOne({
+                where: {
+                  productDiscount: { id: productDiscountEvent.id },
+                },
+                relations: { productDiscount: true },
+              });
+            if (
+              productClassificationFlashSale &&
+              productClassificationFlashSale.quantity >= item.quantity
+            ) {
+              price = productClassificationFlashSale.price;
+              orderDetail.productDiscount = productDiscountEvent;
+              orderDetail.type = OrderEnum.FLASH_SALE;
+            }
           }
           orderDetail.subTotal = price;
           orderDetail.quantity = item.quantity;

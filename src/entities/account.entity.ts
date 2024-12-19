@@ -17,6 +17,7 @@ import { Brand } from "./brand.entity";
 import { Follow } from "./follow.entity";
 import { Order } from "./order.entity";
 import { CartItem } from "./cartItem.entity";
+import { GroupBuying } from "./groupBuying.entity";
 import { VoucherWallet } from "./voucherWallet.entity";
 
 @Entity('accounts')
@@ -76,7 +77,7 @@ export class Account extends BaseEntity {
   files?: File[];
 
   @OneToMany(() => CartItem, (cartItem) => cartItem.account, { nullable: true })
-  @JoinColumn({ name: "cart_items" })
+  @JoinColumn({ name: 'cart_items' })
   cartItems?: CartItem[];
 
   @ManyToMany(() => Brand, (brand) => brand.accounts)
@@ -92,6 +93,9 @@ export class Account extends BaseEntity {
 
   @OneToMany(() => Order, (order) => order.account)
   orders: Order[];
+
+  @OneToMany(() => GroupBuying, (groupBuying) => groupBuying.creator)
+  groupBuyings: GroupBuying[];
 
   @OneToMany(() => VoucherWallet, (wallet) => wallet.owner)
   voucherWallet: VoucherWallet[];
