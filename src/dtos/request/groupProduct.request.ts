@@ -9,6 +9,10 @@ export const GroupProductCreateSchema = z.object({
       .string()
       .max(255, 'Description cannot exceed 255 characters')
       .optional(),
+    maxBuyAmountEachPerson: z
+      .number()
+      .int('Max buy amount each person must be an integer')
+      .positive('Max buy amount each person must be a positive integer'),
     productIds: z
       .array(z.string().uuid('Product ID must be a valid string'))
       .nonempty('Product IDs cannot be empty'),
@@ -32,6 +36,8 @@ export class GroupProductRequest {
   name: string;
   @Expose()
   description?: string;
+  @Expose()
+  maxBuyAmountEachPerson: number;
   @Expose()
   productIds: string[];
   @Expose()
