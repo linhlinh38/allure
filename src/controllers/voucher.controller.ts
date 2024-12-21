@@ -7,6 +7,65 @@ import { VoucherRequest } from '../dtos/request/voucher.request';
 import { Voucher } from '../entities/voucher.entity';
 
 export default class VoucherController {
+  static async getBestShopVouchersForProducts(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      return createNormalResponse(
+        res,
+        'Get vouchers success',
+        await voucherService.getBestShopVouchersForProducts(
+          req.body.classificationIds as string[],
+          req.loginUser
+        )
+      );
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async collectVoucher(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      await voucherService.collectVoucher(req.params.voucherId, req.loginUser);
+      return createNormalResponse(res, 'Collect voucher success');
+    } catch (err) {
+      next(err);
+    }
+  }
+  static async getByBrand(req: Request, res: Response, next: NextFunction) {
+    try {
+      return createNormalResponse(
+        res,
+        'Get vouchers success',
+        await voucherService.getByBrand(req.params.brandId)
+      );
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async getPlatformVouchers(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      return createNormalResponse(
+        res,
+        'Get vouchers success',
+        await voucherService.getPlatformVouchers()
+      );
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async getAll(req: Request, res: Response, next: NextFunction) {
     try {
       return createNormalResponse(
@@ -61,7 +120,7 @@ export default class VoucherController {
     try {
       const voucher: Voucher = await voucherService.findById(req.params.id);
       if (!voucher) return createBadResponse(res, 'No voucher found');
-      await voucherService.update(voucher.id, {status: req.body.status});
+      await voucherService.update(voucher.id, { status: req.body.status });
       return createNormalResponse(res, 'Update status success');
     } catch (err) {
       next(err);

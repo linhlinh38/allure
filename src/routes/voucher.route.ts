@@ -9,6 +9,16 @@ import {
 } from '../dtos/request/voucher.request';
 const voucherRouter = express.Router();
 voucherRouter.get('/', VoucherController.getAll);
+voucherRouter.get('/get-by-brand/:brandId', VoucherController.getByBrand);
+voucherRouter.get(
+  '/get-platform-vouchers',
+  VoucherController.getPlatformVouchers
+);
+voucherRouter.get(
+  '/get-best-shop-vouchers-for-products',
+  VoucherController.getBestShopVouchersForProducts
+);
+
 voucherRouter.get('/get-by-id/:id', VoucherController.getById);
 voucherRouter.post('/search', VoucherController.search);
 voucherRouter.post(
@@ -27,4 +37,8 @@ voucherRouter.put(
   VoucherController.updateStatus
 );
 voucherRouter.use(authentication);
+voucherRouter.post(
+  '/collect-voucher/:voucherId',
+  VoucherController.collectVoucher
+);
 export default voucherRouter;
