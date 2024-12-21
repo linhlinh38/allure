@@ -12,7 +12,6 @@ import { SearchDTO } from '../dtos/other/search.dto';
 import {
   DiscountTypeEnum,
   VoucherApplyTypeEnum,
-  VoucherEnum,
   ShippingStatusEnum,
   VoucherVisibilityEnum,
 } from '../utils/enum';
@@ -21,8 +20,78 @@ import { orderRepository } from '../repositories/order.repository';
 import { VoucherRequest } from '../dtos/request/voucher.request';
 import { brandRepository } from '../repositories/brand.repository';
 import { productRepository } from '../repositories/product.repository';
+import { voucherWalletRepository } from '../repositories/voucherWallet.reposirory';
+import { VoucherWallet } from '../entities/voucherWallet.entity';
+import { productClassificationRepository } from '../repositories/productClassification.repository';
 
 class VoucherService extends BaseService<Voucher> {
+  async getBestShopVouchersForProducts(
+    classificationIds: string[],
+    loginUser: string
+  ) {
+    const classifications = await productClassificationRepository.find({
+      where: { id: In(classificationIds) },
+      relations: { product: { brand: true } },
+    });
+    // Tạo map để nhóm classifications theo brandId
+    const brandClassificationsMap = classifications.reduce(
+      (map, classification) => {
+        const brandId = classification.product.brand.id;
+        if (!map[brandId]) {
+          map[brandId] = [];
+        }
+        map[brandId].push(classification);
+        return map;
+      },
+      {}
+    );
+
+    // Chuyển map thành danh sách object
+    const result = Object.entries(brandClassificationsMap).map(
+      ([brandId, classifications]) => ({
+        brandId: brandId,
+        classifications,
+      })
+    );
+  }
+
+  async collectVoucher(voucherId: string, loginUser: string) {
+    const voucher = await voucherRepository.findOne({
+      where: {
+        id: voucherId,
+      },
+    });
+    if (!voucher) throw new BadRequestError('Voucher not found');
+    if (voucher.visibility != VoucherVisibilityEnum.WALLET) {
+      throw new BadRequestError('This voucher is not collectable');
+    }
+    const voucherWallet = voucherWalletRepository.findOne({
+      where: {
+        voucher: { id: voucherId },
+      },
+    });
+    if (voucherWallet)
+      throw new BadRequestError('Voucher has already been collected');
+    const createdVoucherWallet = new VoucherWallet();
+    createdVoucherWallet.voucher = voucher;
+    createdVoucherWallet.owner.id = loginUser;
+    await voucherWalletRepository.save(createdVoucherWallet);
+  }
+  async getPlatformVouchers() {
+    const vouchers = await voucherRepository.find({
+      where: { brand: null },
+    });
+    return vouchers;
+  }
+  async getByBrand(brandId: string) {
+    const brand = await brandRepository.findOne({ where: { id: brandId } });
+    if (!brand) throw new BadRequestError('Brand not found');
+    const vouchers = await voucherRepository.find({
+      where: { brand: { id: brandId } },
+    });
+    return vouchers;
+  }
+
   constructor() {
     super(voucherRepository);
   }
@@ -311,7 +380,8 @@ class VoucherService extends BaseService<Voucher> {
     }
     if (voucherBody.applyType == VoucherApplyTypeEnum.SPECIFIC) {
       if (
-        !voucherRequest.applyProductIds || voucherRequest.applyProductIds.length == 0
+        !voucherRequest.applyProductIds ||
+        voucherRequest.applyProductIds.length == 0
       ) {
         throw new BadRequestError('Apply product ids must not be empty');
       }
