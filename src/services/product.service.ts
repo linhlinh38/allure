@@ -127,7 +127,7 @@ class ProductService extends BaseService<Product> {
   }
 
   async filteredProducts(filter: ProductFilter): Promise<{
-    products: Product[];
+    items: Product[];
     total: number;
   }> {
     const queryBuilder = this.repository.createQueryBuilder("product");
@@ -177,9 +177,9 @@ class ProductService extends BaseService<Product> {
 
     queryBuilder.take(filter.limit).skip((filter.page - 1) * filter.limit);
 
-    const [products, total] = await queryBuilder.getManyAndCount();
+    const [items, total] = await queryBuilder.getManyAndCount();
 
-    return { products, total };
+    return { items, total };
   }
 
   async beforeCreate(body: any) {
