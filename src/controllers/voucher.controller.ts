@@ -3,7 +3,7 @@ import { plainToInstance } from 'class-transformer';
 import { createBadResponse, createNormalResponse } from '../utils/response';
 import { AuthRequest } from '../middleware/authentication';
 import { voucherService } from '../services/voucher.service';
-import { CheckoutItemRequest, VoucherRequest } from '../dtos/request/voucher.request';
+import { CheckoutItemRequest, GetBestShopVouchersRequest, VoucherRequest } from '../dtos/request/voucher.request';
 import { Voucher } from '../entities/voucher.entity';
 
 export default class VoucherController {
@@ -38,11 +38,18 @@ export default class VoucherController {
     next: NextFunction
   ) {
     try {
+      const getBestShopVouchersRequest = plainToInstance(
+        GetBestShopVouchersRequest,
+        req.body,
+        {
+          excludeExtraneousValues: true,
+        }
+      );
       return createNormalResponse(
         res,
         'Get vouchers success',
         await voucherService.getBestShopVouchersForProducts(
-          req.body.classificationIds as string[],
+          getBestShopVouchersRequest,
           req.loginUser
         )
       );

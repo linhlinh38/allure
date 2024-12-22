@@ -4,6 +4,7 @@ import authentication from '../middleware/authentication';
 import VoucherController from '../controllers/voucher.controller';
 import {
   CheckoutItemSchema,
+  GetBestShopVouchersSchema,
   VoucherCreateSchema,
   VoucherRequest,
   VoucherUpdateSchema,
@@ -16,11 +17,6 @@ voucherRouter.get(
   '/get-platform-vouchers',
   VoucherController.getPlatformVouchers
 );
-voucherRouter.get(
-  '/get-best-shop-vouchers-for-products',
-  VoucherController.getBestShopVouchersForProducts
-);
-
 voucherRouter.get('/get-by-id/:id', VoucherController.getById);
 voucherRouter.post('/search', VoucherController.search);
 voucherRouter.post(
@@ -47,5 +43,10 @@ voucherRouter.post(
   '/categorize-shop-vouchers-when-checkout/',
   validate(CheckoutItemSchema),
   VoucherController.categorizeShopVouchersWhenCheckout
+);
+voucherRouter.post(
+  '/get-best-shop-vouchers-for-products',
+  validate(GetBestShopVouchersSchema),
+  VoucherController.getBestShopVouchersForProducts
 );
 export default voucherRouter;

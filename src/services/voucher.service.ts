@@ -16,12 +16,14 @@ import {
   VoucherVisibilityEnum,
   VoucherWalletStatus,
   ClassificationTypeEnum,
+  VoucherEnum,
 } from '../utils/enum';
 import { Order } from '../entities/order.entity';
 import { orderRepository } from '../repositories/order.repository';
 import {
   CheckoutItem,
   CheckoutItemRequest,
+  GetBestShopVouchersRequest,
   VoucherRequest,
 } from '../dtos/request/voucher.request';
 import { brandRepository } from '../repositories/brand.repository';
@@ -30,14 +32,13 @@ import { voucherWalletRepository } from '../repositories/voucherWallet.reposiror
 import { VoucherWallet } from '../entities/voucherWallet.entity';
 import { productClassificationRepository } from '../repositories/productClassification.repository';
 import { ProductClassification } from '../entities/productClassification.entity';
-import { productDiscountRepository } from '../repositories/productDiscount.repository';
 
 class VoucherService extends BaseService<Voucher> {
   async categorizeShopVouchersWhenCheckout(
     checkoutItemRequest: CheckoutItemRequest,
     loginUser: string
   ) {
-    const classificationIds = checkoutItemRequest.checkoutItems.map(
+    const classificationIds = checkoutItemRequest.brandItems.map(
       (item) => item.classificationId
     );
     const originalClassifications = await productClassificationRepository.find({
@@ -47,11 +48,10 @@ class VoucherService extends BaseService<Voucher> {
         productDiscount: { product: true },
       },
     });
-    console.log(originalClassifications);
-    
+
     // Tạo map từ classificationId sang quantity
     const quantityMap = new Map(
-      checkoutItemRequest.checkoutItems.map((item) => [
+      checkoutItemRequest.brandItems.map((item) => [
         item.classificationId,
         item.quantity,
       ])
@@ -65,8 +65,7 @@ class VoucherService extends BaseService<Voucher> {
       },
       0
     );
-    console.log('total amount: ' + totalAmount);
-    
+
     // logic to get unclaimedVouchers
     const walletVouchers = await voucherWalletRepository.find({
       where: {
@@ -115,23 +114,23 @@ class VoucherService extends BaseService<Voucher> {
         },
       })
     ).map((wallet) => wallet.voucher.id);
-    console.log(allVoucherIdsInWalletOfTheBrand);
-    
+
     //get public vouchers
-    bothAvailableAndUnavailableVouchers = bothAvailableAndUnavailableVouchers.concat(
-      await voucherRepository.find({
-        where: {
-          amount: MoreThan(0),
-          endTime: MoreThan(new Date()),
-          brand: { id: checkoutItemRequest.brandId },
-          visibility: VoucherVisibilityEnum.PUBLIC,
-          id: Not(In(allVoucherIdsInWalletOfTheBrand)),
-        },
-      })
-    );
+    bothAvailableAndUnavailableVouchers =
+      bothAvailableAndUnavailableVouchers.concat(
+        await voucherRepository.find({
+          where: {
+            amount: MoreThan(0),
+            endTime: MoreThan(new Date()),
+            brand: { id: checkoutItemRequest.brandId },
+            visibility: VoucherVisibilityEnum.PUBLIC,
+            id: Not(In(allVoucherIdsInWalletOfTheBrand)),
+          },
+        })
+      );
     const availableVouchers: Voucher[] = [];
     const unAvailableVouchers: Voucher[] = [];
-    
+
     bothAvailableAndUnavailableVouchers.forEach((voucher) => {
       if (new Date(voucher.startTime) > new Date()) {
         unAvailableVouchers.push(voucher);
@@ -170,40 +169,150 @@ class VoucherService extends BaseService<Voucher> {
         } else unAvailableVouchers.push(voucher);
       }
     });
-    return  {
+    return {
       unclaimedVouchers,
       availableVouchers,
-      unAvailableVouchers
-    }
+      unAvailableVouchers,
+    };
   }
   async getBestShopVouchersForProducts(
-    classificationIds: string[],
+    getBestShopVouchersRequest: GetBestShopVouchersRequest,
     loginUser: string
   ) {
-    const classifications = await productClassificationRepository.find({
-      where: { id: In(classificationIds) },
-      relations: { product: { brand: true } },
-    });
-    // Tạo map để nhóm classifications theo brandId
-    const brandClassificationsMap = classifications.reduce(
-      (map, classification) => {
-        const brandId = classification.product.brand.id;
-        if (!map[brandId]) {
-          map[brandId] = [];
-        }
-        map[brandId].push(classification);
-        return map;
-      },
-      {}
-    );
+    const response = [];
 
-    // Chuyển map thành danh sách object
-    const result = Object.entries(brandClassificationsMap).map(
-      ([brandId, classifications]) => ({
-        brandId: brandId,
-        classifications,
-      })
-    );
+    for (const checkoutItem of getBestShopVouchersRequest.checkoutItems) {
+      const quantityMap = new Map(
+        checkoutItem.brandItems.map((item) => [
+          item.classificationId,
+          item.quantity,
+        ])
+      );
+      const classificationIds = checkoutItem.brandItems.map(
+        (item) => item.classificationId
+      );
+      const classifications = await productClassificationRepository.find({
+        where: { id: In(classificationIds) },
+        relations: {
+          product: { brand: true },
+          productDiscount: { product: true },
+        },
+      });
+      let availableVouchersInWallet = (
+        await voucherWalletRepository.find({
+          where: {
+            owner: { id: loginUser },
+            voucher: {
+              startTime: LessThanOrEqual(new Date()),
+              endTime: MoreThan(new Date()),
+              brand: { id: checkoutItem.brandId },
+              type: VoucherWalletStatus.NOT_USED,
+            },
+          },
+          relations: {
+            voucher: { applyProducts: true },
+          },
+        })
+      ).map((wallet) => wallet.voucher);
+      const allVoucherIdsInWalletOfTheBrand = (
+        await voucherWalletRepository.find({
+          where: {
+            owner: { id: loginUser },
+            voucher: {
+              brand: { id: checkoutItem.brandId },
+            },
+          },
+          relations: {
+            voucher: { applyProducts: true },
+          },
+        })
+      ).map((wallet) => wallet.voucher.id);
+
+      const availableVouchers = availableVouchersInWallet.concat(
+        await voucherRepository.find({
+          where: {
+            amount: MoreThan(0),
+            startTime: LessThanOrEqual(new Date()),
+            endTime: MoreThan(new Date()),
+            brand: { id: checkoutItem.brandId },
+            visibility: VoucherVisibilityEnum.PUBLIC,
+            id: Not(In(allVoucherIdsInWalletOfTheBrand)),
+          },
+          relations: {
+            applyProducts: true,
+          }
+        })
+      );
+      let bestDiscount = 0;
+      let bestVoucher = null;
+
+      for (const voucher of availableVouchers) {
+        const discount = this.calculateDiscountVoucherForProductClassifications(
+          classifications,
+          quantityMap,
+          voucher
+        );
+        console.log(discount);
+        
+        if (discount > bestDiscount) {
+          bestDiscount = discount;
+          bestVoucher = voucher;
+        }
+      }
+      response.push({
+        brandId: checkoutItem.brandId,
+        bestVoucher,
+        bestDiscount,
+      });
+    }
+    return response;
+  }
+
+  calculateDiscountVoucherForProductClassifications(
+    classifications: ProductClassification[],
+    quantityMap: Map<string, number>,
+    voucher: Voucher
+  ) {
+    let totalAmount = classifications.reduce((total, classification) => {
+      const quantity = quantityMap.get(classification.id) || 0;
+      const price = classification.price || 0;
+      return total + price * quantity;
+    }, 0);
+    if ((voucher.applyType == VoucherApplyTypeEnum.SPECIFIC)) {
+      const applyProductIds = voucher.applyProducts.map(
+        (product) => product.id
+      );
+      const applyClassifications = classifications.filter((classification) => {
+        if (classification.productDiscount) {
+          return applyProductIds.includes(
+            classification.productDiscount.product.id
+          );
+        }
+        return applyProductIds.includes(classification.product.id);
+      });
+      if (applyClassifications.length == 0) return 0;
+      totalAmount = applyClassifications.reduce((total, classification) => {
+        const quantity = quantityMap.get(classification.id) || 0;
+        const price = classification.price || 0;
+        return total + price * quantity;
+      }, 0);
+    }
+    if (voucher.minOrderValue && totalAmount < voucher.minOrderValue) return 0;
+    
+    if (voucher.discountType == DiscountTypeEnum.AMOUNT) {
+      return voucher.maxDiscount
+        ? Math.min(totalAmount, voucher.discountValue, voucher.maxDiscount)
+        : Math.min(totalAmount, voucher.discountValue);
+    }
+    if (voucher.discountType == DiscountTypeEnum.PERCENTAGE) {
+      return voucher.maxDiscount
+        ? Math.min(
+            totalAmount,
+            totalAmount * voucher.discountValue,
+            voucher.maxDiscount
+          )
+        : Math.min(totalAmount, totalAmount * voucher.discountValue);
+    }
   }
 
   async collectVoucher(voucherId: string, loginUser: string) {
