@@ -3,10 +3,35 @@ import { plainToInstance } from 'class-transformer';
 import { createBadResponse, createNormalResponse } from '../utils/response';
 import { AuthRequest } from '../middleware/authentication';
 import { voucherService } from '../services/voucher.service';
-import { VoucherRequest } from '../dtos/request/voucher.request';
+import { CheckoutItemRequest, VoucherRequest } from '../dtos/request/voucher.request';
 import { Voucher } from '../entities/voucher.entity';
 
 export default class VoucherController {
+  static async categorizeShopVouchersWhenCheckout(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const checkoutItemRequest = plainToInstance(
+        CheckoutItemRequest,
+        req.body,
+        {
+          excludeExtraneousValues: true,
+        }
+      );
+      return createNormalResponse(
+        res,
+        'Get vouchers success',
+        await voucherService.categorizeShopVouchersWhenCheckout(
+          checkoutItemRequest,
+          req.loginUser
+        )
+      );
+    } catch (err) {
+      next(err);
+    }
+  }
   static async getBestShopVouchersForProducts(
     req: AuthRequest,
     res: Response,

@@ -72,6 +72,32 @@ export const VoucherUpdateStatusSchema = z.object({
   }),
 });
 
+export const CheckoutItemSchema = z.object({
+  body: z.object({
+    checkoutItems: z.array(
+      z.object({
+        classificationId: z.string(),
+        quantity: z.number().int().positive(),
+      })
+    ).nonempty(),
+    brandId: z.string().uuid(),
+  }),
+});
+
+export class CheckoutItemRequest {
+  @Expose()
+  checkoutItems: CheckoutItem[];
+  @Expose()
+  brandId: string;
+}
+
+export class CheckoutItem {
+  @Expose()
+  classificationId: string;
+  @Expose()
+  quantity: number;
+}
+
 export class VoucherRequest {
   @Expose()
   name: string;
