@@ -3,7 +3,9 @@ import validate from '../utils/validate';
 import authentication from '../middleware/authentication';
 import VoucherController from '../controllers/voucher.controller';
 import {
+  CheckoutItemSchema,
   VoucherCreateSchema,
+  VoucherRequest,
   VoucherUpdateSchema,
   VoucherUpdateStatusSchema,
 } from '../dtos/request/voucher.request';
@@ -40,5 +42,10 @@ voucherRouter.use(authentication);
 voucherRouter.post(
   '/collect-voucher/:voucherId',
   VoucherController.collectVoucher
+);
+voucherRouter.post(
+  '/categorize-shop-vouchers-when-checkout/',
+  validate(CheckoutItemSchema),
+  VoucherController.categorizeShopVouchersWhenCheckout
 );
 export default voucherRouter;
