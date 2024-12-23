@@ -74,19 +74,64 @@ export const VoucherUpdateStatusSchema = z.object({
 
 export const CheckoutItemSchema = z.object({
   body: z.object({
-    checkoutItems: z.array(
-      z.object({
-        classificationId: z.string(),
-        quantity: z.number().int().positive(),
-      })
-    ).nonempty(),
+    checkoutItems: z
+      .array(
+        z.object({
+          classificationId: z.string(),
+          quantity: z.number().int().positive(),
+        })
+      )
+      .nonempty(),
     brandId: z.string().uuid(),
   }),
 });
 
-export class CheckoutItemRequest {
+export const GetBestShopVouchersSchema = z.object({
+  body: z.object({
+    checkoutItems: z
+      .array(
+        z.object({
+          brandItems: z
+            .array(
+              z.object({
+                classificationId: z.string(),
+                quantity: z.number().int().positive(),
+              })
+            )
+            .nonempty(),
+          brandId: z.string().uuid(),
+        })
+      )
+      .nonempty(),
+  }),
+});
+
+export const GetBestPlatformVouchersSchema = z.object({
+  body: z.object({
+    checkoutItems: z
+      .array(
+        z.object({
+          classificationId: z.string(),
+          quantity: z.number().int().positive(),
+        })
+      )
+      .nonempty(),
+  }),
+});
+
+export class GetBestPlatformVouchersRequest {
   @Expose()
   checkoutItems: CheckoutItem[];
+}
+
+export class GetBestShopVouchersRequest {
+  @Expose()
+  checkoutItems: CheckoutItemRequest[];
+}
+
+export class CheckoutItemRequest {
+  @Expose()
+  brandItems: CheckoutItem[];
   @Expose()
   brandId: string;
 }
