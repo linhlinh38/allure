@@ -4,6 +4,7 @@ import authentication from '../middleware/authentication';
 import VoucherController from '../controllers/voucher.controller';
 import {
   CheckoutItemSchema,
+  GetBestPlatformVouchersSchema,
   GetBestShopVouchersSchema,
   VoucherCreateSchema,
   VoucherRequest,
@@ -45,8 +46,18 @@ voucherRouter.post(
   VoucherController.categorizeShopVouchersWhenCheckout
 );
 voucherRouter.post(
+  '/categorize-platform-vouchers-when-checkout/',
+  validate(GetBestPlatformVouchersSchema),
+  VoucherController.categorizePlatformVouchersWhenCheckout
+);
+voucherRouter.post(
   '/get-best-shop-vouchers-for-products',
   validate(GetBestShopVouchersSchema),
   VoucherController.getBestShopVouchersForProducts
+);
+voucherRouter.post(
+  '/get-best-platform-vouchers-for-products',
+  validate(GetBestPlatformVouchersSchema),
+  VoucherController.getBestPlatformVouchersForProducts
 );
 export default voucherRouter;

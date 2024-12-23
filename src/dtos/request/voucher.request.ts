@@ -106,6 +106,24 @@ export const GetBestShopVouchersSchema = z.object({
   }),
 });
 
+export const GetBestPlatformVouchersSchema = z.object({
+  body: z.object({
+    checkoutItems: z
+      .array(
+        z.object({
+          classificationId: z.string(),
+          quantity: z.number().int().positive(),
+        })
+      )
+      .nonempty(),
+  }),
+});
+
+export class GetBestPlatformVouchersRequest {
+  @Expose()
+  checkoutItems: CheckoutItem[];
+}
+
 export class GetBestShopVouchersRequest {
   @Expose()
   checkoutItems: CheckoutItemRequest[];
