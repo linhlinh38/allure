@@ -1,60 +1,70 @@
-import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
-import { BaseEntity } from './base.entity';
-import { AddressEnum, GenderEnum, RoleEnum, StatusEnum } from '../utils/enum';
-import { Account } from './account.entity';
+import { Column, Entity, JoinColumn, ManyToOne } from "typeorm";
+import { BaseEntity } from "./base.entity";
+import { AddressEnum, GenderEnum, RoleEnum, StatusEnum } from "../utils/enum";
+import { Account } from "./account.entity";
 
-@Entity('addresses')
+@Entity("addresses")
 export class Address extends BaseEntity {
-  @Column({ type: 'varchar', length: 15 })
-  phone: string;
+  @Column({
+    name: "full_name",
+    type: "varchar",
+    length: 100,
+    nullable: true,
+  })
+  fullName?: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  number?: string;
+  @Column({
+    name: "phone_number",
+    type: "varchar",
+    length: 100,
+    nullable: true,
+  })
+  phone?: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  building?: string;
-
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  street?: string;
-
-  @Column({ type: 'varchar', length: 100, nullable: true })
+  @Column({ type: "varchar", length: 100, nullable: true })
   ward?: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: false })
-  city: string;
+  @Column({ type: "varchar", length: 100, nullable: true })
+  district: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: "varchar", length: 255, nullable: true })
   province: string;
 
   @Column({
-    name: 'full_address',
-    type: 'varchar',
-    length: 100,
+    name: "full_address",
+    type: "varchar",
     nullable: true,
   })
   fullAddress?: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({
+    name: "detail_address",
+    type: "varchar",
+    nullable: true,
+  })
+  detailAddress?: string;
+
+  @Column({ type: "varchar", nullable: true })
   notes: string;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: AddressEnum,
     default: AddressEnum.OTHER,
   })
   type: AddressEnum;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: StatusEnum,
     default: StatusEnum.ACTIVE,
   })
   status: StatusEnum;
 
-  @Column({ name: 'is_default', type: 'boolean', default: false })
+  @Column({ name: "is_default", type: "boolean", default: false })
   isDefault: boolean;
 
   @ManyToOne(() => Account, (account) => account.addresses)
-  @JoinColumn({ name: 'account_id' })
+  @JoinColumn({ name: "account_id" })
   account: Account;
 }

@@ -30,7 +30,7 @@ class AccountService extends BaseService<Account> {
   async getById(accountId: string) {
     const account = await repository.findOne({
       where: { id: accountId },
-      relations: ["role", "brands", "cartItems"],
+      relations: ["role", "brands", "cartItems", "addresses"],
     });
 
     if (!account) {
@@ -151,14 +151,15 @@ class AccountService extends BaseService<Account> {
         if (data.address) {
           const address: Partial<Address> = {
             account: account,
-            number: data.address.number,
-            building: data.address.building,
-            street: data.address.street,
+            fullName: data.address.fullName,
+            phone: data.address.phone,
+            district: data.address.district,
             ward: data.address.ward,
-            city: data.address.city,
+            detailAddress: data.address.detailAddress,
             province: data.address.province,
             fullAddress: data.address.fullAddress,
             type: data.address.type,
+            notes: data.address.notes,
             isDefault: true,
           };
           await queryRunner.manager.save(Address, address);

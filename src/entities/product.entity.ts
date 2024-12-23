@@ -19,55 +19,55 @@ import { PreOrderProduct } from "./preOrderProduct.entity";
 import { ProductDiscount } from "./productDiscount.entity";
 import { GroupProduct } from "./groupProduct.entity";
 
-@Entity('products')
+@Entity("products")
 export class Product extends BaseEntity {
-  @Column({ type: 'varchar' })
+  @Column({ type: "varchar" })
   name: string;
 
   @ManyToOne(() => Brand, { nullable: false })
-  @JoinColumn({ name: 'brand_id' })
+  @JoinColumn({ name: "brand_id" })
   brand: Brand;
 
   @ManyToOne(() => Category, { nullable: true })
-  @JoinColumn({ name: 'category_id' })
+  @JoinColumn({ name: "category_id" })
   category: Category;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: "varchar", nullable: true })
   description: string;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: "varchar", nullable: true })
   detail: string;
 
-  @Column({ type: 'varchar', default: null })
+  @Column({ type: "varchar", nullable: true, default: null })
   sku: string;
 
   @OneToMany(
     () => ProductClassification,
     (productClassification) => productClassification.product
   )
-  @JoinColumn({ name: 'product_classifications' })
+  @JoinColumn({ name: "product_classifications" })
   productClassifications: ProductClassification[];
 
   @OneToMany(() => ProductImage, (image) => image.product, { nullable: true })
-  @JoinColumn({ name: 'product_images' })
+  @JoinColumn({ name: "product_images" })
   images?: ProductImage[];
 
   @OneToMany(
     () => PreOrderProduct,
     (preOrderProduct) => preOrderProduct.product
   )
-  @JoinColumn({ name: 'pre_order_products' })
+  @JoinColumn({ name: "pre_order_products" })
   preOrderProducts: PreOrderProduct[];
 
   @OneToMany(
     () => ProductDiscount,
     (productDiscount) => productDiscount.product
   )
-  @JoinColumn({ name: 'product_discounts' })
+  @JoinColumn({ name: "product_discounts" })
   productDiscounts: ProductDiscount[];
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: ProductEnum,
     default: ProductEnum.OFFICIAL,
   })
