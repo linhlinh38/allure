@@ -109,6 +109,7 @@ export enum VoucherApplyTypeEnum {
 export enum VoucherVisibilityEnum {
   WALLET = "WALLET",
   PUBLIC = "PUBLIC",
+  GROUP = "GROUP",
 }
 
 export enum VoucherWalletStatus {
