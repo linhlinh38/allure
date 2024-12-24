@@ -52,13 +52,13 @@ export class Voucher extends BaseEntity {
   })
   status: StatusEnum;
 
-  @Column({ type: 'integer' })
+  @Column({ type: 'integer', nullable: true })
   amount: number;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'timestamp', nullable: true })
   startTime: Date;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'timestamp', nullable: true })
   endTime: Date;
 
   @Column({
