@@ -33,6 +33,7 @@ import { voucherWalletRepository } from '../repositories/voucherWallet.reposiror
 import { VoucherWallet } from '../entities/voucherWallet.entity';
 import { productClassificationRepository } from '../repositories/productClassification.repository';
 import { ProductClassification } from '../entities/productClassification.entity';
+import { Account } from '../entities/account.entity';
 
 class VoucherService extends BaseService<Voucher> {
   async canApplyVoucher(
@@ -663,7 +664,7 @@ class VoucherService extends BaseService<Voucher> {
     if (voucher.visibility != VoucherVisibilityEnum.WALLET) {
       throw new BadRequestError('This voucher is not collectable');
     }
-    const voucherWallet = voucherWalletRepository.findOne({
+    const voucherWallet = await voucherWalletRepository.findOne({
       where: {
         voucher: { id: voucherId },
       },
@@ -672,6 +673,7 @@ class VoucherService extends BaseService<Voucher> {
       throw new BadRequestError('Voucher has already been collected');
     const createdVoucherWallet = new VoucherWallet();
     createdVoucherWallet.voucher = voucher;
+    createdVoucherWallet.owner = new Account();
     createdVoucherWallet.owner.id = loginUser;
     await voucherWalletRepository.save(createdVoucherWallet);
   }
