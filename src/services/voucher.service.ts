@@ -1,4 +1,12 @@
-import { In, IsNull, LessThanOrEqual, MoreThan, Not } from 'typeorm';
+import {
+  In,
+  IsNull,
+  LessThan,
+  LessThanOrEqual,
+  MoreThan,
+  MoreThanOrEqual,
+  Not,
+} from 'typeorm';
 import { AppDataSource } from '../dataSource';
 
 import { BaseService } from './base.service';
@@ -203,7 +211,8 @@ class VoucherService extends BaseService<Voucher> {
           owner: { id: loginUser },
           status: VoucherWalletStatus.NOT_USED,
           voucher: {
-            endTime: MoreThan(new Date()),
+            startTime: LessThanOrEqual(new Date()),
+            endTime: MoreThanOrEqual(new Date()),
             brand: IsNull(),
           },
         },
@@ -232,7 +241,8 @@ class VoucherService extends BaseService<Voucher> {
         await voucherRepository.find({
           where: {
             amount: MoreThan(0),
-            endTime: MoreThan(new Date()),
+            startTime: LessThanOrEqual(new Date()),
+            endTime: MoreThanOrEqual(new Date()),
             brand: IsNull(),
             visibility: VoucherVisibilityEnum.PUBLIC,
             id: Not(In(allPlatformVoucherIdsInWallet)),
@@ -246,9 +256,7 @@ class VoucherService extends BaseService<Voucher> {
     const unAvailableVouchers: Voucher[] = [];
 
     bothAvailableAndUnavailableVouchers.forEach((voucher) => {
-      if (new Date(voucher.startTime) > new Date()) {
-        unAvailableVouchers.push(voucher);
-      } else if ((voucher.applyType = VoucherApplyTypeEnum.SPECIFIC)) {
+      if ((voucher.applyType = VoucherApplyTypeEnum.SPECIFIC)) {
         const applyProductIds = voucher.applyProducts.map(
           (product) => product.id
         );
@@ -336,7 +344,8 @@ class VoucherService extends BaseService<Voucher> {
           owner: { id: loginUser },
           status: VoucherWalletStatus.NOT_USED,
           voucher: {
-            endTime: MoreThan(new Date()),
+            startTime: LessThanOrEqual(new Date()),
+            endTime: MoreThanOrEqual(new Date()),
             brand: { id: checkoutItemRequest.brandId },
           },
         },
@@ -365,7 +374,8 @@ class VoucherService extends BaseService<Voucher> {
         await voucherRepository.find({
           where: {
             amount: MoreThan(0),
-            endTime: MoreThan(new Date()),
+            startTime: LessThanOrEqual(new Date()),
+            endTime: MoreThanOrEqual(new Date()),
             brand: { id: checkoutItemRequest.brandId },
             visibility: VoucherVisibilityEnum.PUBLIC,
             id: Not(In(allVoucherIdsInWalletOfTheBrand)),
@@ -379,9 +389,7 @@ class VoucherService extends BaseService<Voucher> {
     const unAvailableVouchers: Voucher[] = [];
 
     bothAvailableAndUnavailableVouchers.forEach((voucher) => {
-      if (new Date(voucher.startTime) > new Date()) {
-        unAvailableVouchers.push(voucher);
-      } else if ((voucher.applyType = VoucherApplyTypeEnum.SPECIFIC)) {
+      if ((voucher.applyType = VoucherApplyTypeEnum.SPECIFIC)) {
         const applyProductIds = voucher.applyProducts.map(
           (product) => product.id
         );
@@ -625,7 +633,9 @@ class VoucherService extends BaseService<Voucher> {
           );
         }
         if (classification.preOrderProduct) {
-          return applyProductIds.includes(classification.preOrderProduct.id);
+          return applyProductIds.includes(
+            classification.preOrderProduct.product.id
+          );
         }
         return applyProductIds.includes(classification.product.id);
       });
