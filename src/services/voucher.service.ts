@@ -1,13 +1,11 @@
 import {
   In,
   IsNull,
-  LessThan,
   LessThanOrEqual,
   MoreThan,
   MoreThanOrEqual,
   Not,
 } from 'typeorm';
-import { AppDataSource } from '../dataSource';
 
 import { BaseService } from './base.service';
 
@@ -23,7 +21,7 @@ import {
   ShippingStatusEnum,
   VoucherVisibilityEnum,
   VoucherWalletStatus,
-  ClassificationTypeEnum,
+  VoucherUnavailableReasonEnum,
 } from '../utils/enum';
 import { Order } from '../entities/order.entity';
 import { orderRepository } from '../repositories/order.repository';
@@ -179,9 +177,8 @@ class VoucherService extends BaseService<Voucher> {
       classificationIds
     );
 
-    // Tạo map từ classificationId sang quantity
     const quantityMap = this.getQuantityMap(checkoutItems);
-    // Tính tổng amount
+
     let totalPrice = this.getTotalPrice(originalClassifications, quantityMap);
 
     // logic to get unclaimedVouchers
@@ -253,31 +250,16 @@ class VoucherService extends BaseService<Voucher> {
         })
       );
     const availableVouchers: Voucher[] = [];
-    const unAvailableVouchers: Voucher[] = [];
+    const unAvailableVouchers = [];
 
-    bothAvailableAndUnavailableVouchers.forEach((voucher) => {
-      if ((voucher.applyType = VoucherApplyTypeEnum.SPECIFIC)) {
-        const applyProductIds = voucher.applyProducts.map(
-          (product) => product.id
-        );
-        const applyClassifications = this.getApplyClassifications(
-          originalClassifications,
-          applyProductIds
-        );
-        if (applyClassifications.length == 0) {
-          unAvailableVouchers.push(voucher);
-        } else {
-          totalPrice = this.getTotalPrice(applyClassifications, quantityMap);
-          if (!voucher.minOrderValue || totalPrice >= voucher.minOrderValue) {
-            availableVouchers.push(voucher);
-          } else unAvailableVouchers.push(voucher);
-        }
-      } else {
-        if (!voucher.minOrderValue || totalPrice >= voucher.minOrderValue) {
-          availableVouchers.push(voucher);
-        } else unAvailableVouchers.push(voucher);
-      }
-    });
+    this.categorizeAvaiAndUnavaiVouchers(
+      bothAvailableAndUnavailableVouchers,
+      originalClassifications,
+      unAvailableVouchers,
+      totalPrice,
+      quantityMap,
+      availableVouchers
+    );
     return {
       unclaimedVouchers,
       availableVouchers,
@@ -292,30 +274,16 @@ class VoucherService extends BaseService<Voucher> {
     const classificationIds = checkoutItemRequest.brandItems.map(
       (item) => item.classificationId
     );
-    const originalClassifications = await productClassificationRepository.find({
-      where: { id: In(classificationIds) },
-      relations: {
-        product: { brand: true },
-        productDiscount: { product: true },
-        preOrderProduct: { product: true },
-      },
-    });
+    const originalClassifications = await this.getClassificationFromListId(
+      classificationIds
+    );
 
     // Tạo map từ classificationId sang quantity
-    const quantityMap = new Map(
-      checkoutItemRequest.brandItems.map((item) => [
-        item.classificationId,
-        item.quantity,
-      ])
-    );
+    const quantityMap = this.getQuantityMap(checkoutItemRequest.brandItems);
     // Tính tổng amount
-    const totalAmount = originalClassifications.reduce(
-      (total, classification) => {
-        const quantity = quantityMap.get(classification.id) || 0; // Lấy quantity tương ứng, mặc định là 0 nếu không có
-        const price = classification.price || 0; // Đảm bảo price không bị null
-        return total + price * quantity;
-      },
-      0
+    const totalAmount = this.getTotalPrice(
+      originalClassifications,
+      quantityMap
     );
 
     // logic to get unclaimedVouchers
@@ -386,55 +354,67 @@ class VoucherService extends BaseService<Voucher> {
         })
       );
     const availableVouchers: Voucher[] = [];
-    const unAvailableVouchers: Voucher[] = [];
+    const unAvailableVouchers = [];
 
-    bothAvailableAndUnavailableVouchers.forEach((voucher) => {
-      if ((voucher.applyType = VoucherApplyTypeEnum.SPECIFIC)) {
-        const applyProductIds = voucher.applyProducts.map(
-          (product) => product.id
-        );
-        const applyClassifications = originalClassifications.filter(
-          (classification) => {
-            if (classification.productDiscount) {
-              return applyProductIds.includes(
-                classification.productDiscount.product.id
-              );
-            }
-            if (classification.preOrderProduct) {
-              return applyProductIds.includes(
-                classification.preOrderProduct.product.id
-              );
-            }
-            return applyProductIds.includes(classification.product.id);
-          }
-        );
-        if (applyClassifications.length == 0) {
-          unAvailableVouchers.push(voucher);
-        } else {
-          const totalAmount = applyClassifications.reduce(
-            (total, classification) => {
-              const quantity = quantityMap.get(classification.id) || 0;
-              const price = classification.price || 0;
-              return total + price * quantity;
-            },
-            0
-          );
-          if (!voucher.minOrderValue || totalAmount >= voucher.minOrderValue) {
-            availableVouchers.push(voucher);
-          } else unAvailableVouchers.push(voucher);
-        }
-      } else {
-        if (!voucher.minOrderValue || totalAmount >= voucher.minOrderValue) {
-          availableVouchers.push(voucher);
-        } else unAvailableVouchers.push(voucher);
-      }
-    });
+    this.categorizeAvaiAndUnavaiVouchers(
+      bothAvailableAndUnavailableVouchers,
+      originalClassifications,
+      unAvailableVouchers,
+      totalAmount,
+      quantityMap,
+      availableVouchers
+    );
     return {
       unclaimedVouchers,
       availableVouchers,
       unAvailableVouchers,
     };
   }
+
+  categorizeAvaiAndUnavaiVouchers(
+    bothAvailableAndUnavailableVouchers: Voucher[],
+    originalClassifications: ProductClassification[],
+    unAvailableVouchers: any[],
+    totalPrice: number,
+    quantityMap: Map<string, number>,
+    availableVouchers: Voucher[]
+  ) {
+    bothAvailableAndUnavailableVouchers.forEach((voucher) => {
+      if ((voucher.applyType = VoucherApplyTypeEnum.SPECIFIC)) {
+        const applyProductIds = voucher.applyProducts.map(
+          (product) => product.id
+        );
+        const applyClassifications = this.getApplyClassifications(
+          originalClassifications,
+          applyProductIds
+        );
+        if (applyClassifications.length == 0) {
+          unAvailableVouchers.push({
+            ...voucher,
+            reason: VoucherUnavailableReasonEnum.NOT_APPLICABLE,
+          });
+        } else {
+          totalPrice = this.getTotalPrice(applyClassifications, quantityMap);
+          if (!voucher.minOrderValue || totalPrice >= voucher.minOrderValue) {
+            availableVouchers.push(voucher);
+          } else
+            unAvailableVouchers.push({
+              ...voucher,
+              reason: VoucherUnavailableReasonEnum.MINIMUM_ORDER_NOT_MET,
+            });
+        }
+      } else {
+        if (!voucher.minOrderValue || totalPrice >= voucher.minOrderValue) {
+          availableVouchers.push(voucher);
+        } else
+          unAvailableVouchers.push({
+            ...voucher,
+            reason: VoucherUnavailableReasonEnum.MINIMUM_ORDER_NOT_MET,
+          });
+      }
+    });
+  }
+
   async getBestPlatformVouchersForProducts(
     getBestPlatformVouchersRequest: GetBestPlatformVouchersRequest,
     loginUser: string
