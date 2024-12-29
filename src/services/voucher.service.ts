@@ -208,7 +208,6 @@ class VoucherService extends BaseService<Voucher> {
           owner: { id: loginUser },
           status: VoucherWalletStatus.NOT_USED,
           voucher: {
-            startTime: LessThanOrEqual(new Date()),
             endTime: MoreThanOrEqual(new Date()),
             brand: IsNull(),
           },
@@ -238,7 +237,6 @@ class VoucherService extends BaseService<Voucher> {
         await voucherRepository.find({
           where: {
             amount: MoreThan(0),
-            startTime: LessThanOrEqual(new Date()),
             endTime: MoreThanOrEqual(new Date()),
             brand: IsNull(),
             visibility: VoucherVisibilityEnum.PUBLIC,
@@ -249,7 +247,7 @@ class VoucherService extends BaseService<Voucher> {
           },
         })
       );
-    const availableVouchers: Voucher[] = [];
+    const availableVouchers = [];
     const unAvailableVouchers = [];
 
     this.categorizeAvaiAndUnavaiVouchers(
@@ -312,7 +310,6 @@ class VoucherService extends BaseService<Voucher> {
           owner: { id: loginUser },
           status: VoucherWalletStatus.NOT_USED,
           voucher: {
-            startTime: LessThanOrEqual(new Date()),
             endTime: MoreThanOrEqual(new Date()),
             brand: { id: checkoutItemRequest.brandId },
           },
@@ -342,7 +339,6 @@ class VoucherService extends BaseService<Voucher> {
         await voucherRepository.find({
           where: {
             amount: MoreThan(0),
-            startTime: LessThanOrEqual(new Date()),
             endTime: MoreThanOrEqual(new Date()),
             brand: { id: checkoutItemRequest.brandId },
             visibility: VoucherVisibilityEnum.PUBLIC,
@@ -353,7 +349,7 @@ class VoucherService extends BaseService<Voucher> {
           },
         })
       );
-    const availableVouchers: Voucher[] = [];
+    const availableVouchers = [];
     const unAvailableVouchers = [];
 
     this.categorizeAvaiAndUnavaiVouchers(
@@ -371,15 +367,22 @@ class VoucherService extends BaseService<Voucher> {
     };
   }
 
-  categorizeAvaiAndUnavaiVouchers(
+  async categorizeAvaiAndUnavaiVouchers(
     bothAvailableAndUnavailableVouchers: Voucher[],
     originalClassifications: ProductClassification[],
     unAvailableVouchers: any[],
     totalPrice: number,
     quantityMap: Map<string, number>,
-    availableVouchers: Voucher[]
+    availableVouchers: any[]
   ) {
-    bothAvailableAndUnavailableVouchers.forEach((voucher) => {
+    for(const voucher of bothAvailableAndUnavailableVouchers) {
+      if(new Date(voucher.startTime) > new Date()) {
+        unAvailableVouchers.push({
+          ...voucher,
+          reason: VoucherUnavailableReasonEnum.NOT_START_YET,
+          used: await this.getPercentageUsedOfVoucher(voucher),
+        });
+      }
       if ((voucher.applyType = VoucherApplyTypeEnum.SPECIFIC)) {
         const applyProductIds = voucher.applyProducts.map(
           (product) => product.id
@@ -392,27 +395,36 @@ class VoucherService extends BaseService<Voucher> {
           unAvailableVouchers.push({
             ...voucher,
             reason: VoucherUnavailableReasonEnum.NOT_APPLICABLE,
+            used: await this.getPercentageUsedOfVoucher(voucher),
           });
         } else {
           totalPrice = this.getTotalPrice(applyClassifications, quantityMap);
           if (!voucher.minOrderValue || totalPrice >= voucher.minOrderValue) {
-            availableVouchers.push(voucher);
+            availableVouchers.push({
+              ...voucher,
+              used: await this.getPercentageUsedOfVoucher(voucher),
+            });
           } else
             unAvailableVouchers.push({
               ...voucher,
               reason: VoucherUnavailableReasonEnum.MINIMUM_ORDER_NOT_MET,
+              used: await this.getPercentageUsedOfVoucher(voucher),
             });
         }
       } else {
         if (!voucher.minOrderValue || totalPrice >= voucher.minOrderValue) {
-          availableVouchers.push(voucher);
+          availableVouchers.push({
+            ...voucher,
+            used: await this.getPercentageUsedOfVoucher(voucher),
+          });
         } else
           unAvailableVouchers.push({
             ...voucher,
             reason: VoucherUnavailableReasonEnum.MINIMUM_ORDER_NOT_MET,
+            used: await this.getPercentageUsedOfVoucher(voucher),
           });
       }
-    });
+    };
   }
 
   async getBestPlatformVouchersForProducts(
@@ -592,6 +604,21 @@ class VoucherService extends BaseService<Voucher> {
     return response;
   }
 
+  async getPercentageUsedOfVoucher(voucher: Voucher) {
+    if(voucher.visibility == VoucherVisibilityEnum.WALLET) {
+      return 0;
+    }
+    if (voucher.visibility == VoucherVisibilityEnum.PUBLIC) {
+      const usedVouchers = await voucherWalletRepository.count({
+        where: {
+          voucher: { id: voucher.id },
+          status: VoucherWalletStatus.USED,
+        },
+      });
+      return (usedVouchers / (usedVouchers + voucher.amount)).toFixed(2);
+    }
+  }
+
   calculateDiscountVoucherForProductClassifications(
     classifications: ProductClassification[],
     quantityMap: Map<string, number>,
@@ -609,15 +636,15 @@ class VoucherService extends BaseService<Voucher> {
       const applyClassifications = classifications.filter((classification) => {
         if (classification.productDiscount) {
           return applyProductIds.includes(
-            classification.productDiscount.product.id
+            classification.productDiscount.product?.id
           );
         }
         if (classification.preOrderProduct) {
           return applyProductIds.includes(
-            classification.preOrderProduct.product.id
+            classification.preOrderProduct.product?.id
           );
         }
-        return applyProductIds.includes(classification.product.id);
+        return applyProductIds.includes(classification.product?.id);
       });
       if (applyClassifications.length == 0) return 0;
       totalAmount = applyClassifications.reduce((total, classification) => {
