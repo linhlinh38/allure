@@ -19,6 +19,7 @@ import {
 } from "../services/mail.service";
 import { roleService } from "../services/role.service";
 import { AccountUpdateStatusType } from "../dtos/request/account.request";
+import { createNormalResponse } from "../utils/response";
 
 async function getAllAccount(req: Request, res: Response, next: NextFunction) {
   try {
@@ -49,6 +50,30 @@ async function getAccountBy(req: Request, res: Response, next: NextFunction) {
       .send({ message: "Get all account success", data: responseData });
   } catch (error) {
     next(error);
+  }
+}
+
+async function filterAccounts(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { username, email, role, brand, status, sortBy, order, limit, page } =
+      req.query;
+
+    const filter = {
+      username: username?.toString(),
+      email: email?.toString(),
+      role: role?.toString(),
+      brand: brand?.toString(),
+      status: status ? (status as StatusEnum) : undefined,
+      sortBy: sortBy?.toString() ?? "id",
+      order: order?.toString() ?? "ASC",
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 10,
+    };
+
+    const accounts = await accountService.filterAccounts(filter);
+    return createNormalResponse(res, "Get accounts success", accounts);
+  } catch (err) {
+    next(err);
   }
 }
 
@@ -277,4 +302,5 @@ export const accountController = {
   requestCreateAccount,
   verifyAccount,
   getStaffByBrandAndStatus,
+  filterAccounts,
 };
