@@ -13,6 +13,19 @@ import { Brand } from "../entities/brand.entity";
 import { StatusTracking } from "../entities/statusTracking.entity";
 import { AccountUpdateStatusType } from "../dtos/request/account.request";
 const repository = AppDataSource.getRepository(Account);
+
+interface FilterOptions {
+  username?: string;
+  email?: string;
+  role?: string;
+  brand?: string;
+  status?: StatusEnum;
+  sortBy?: string;
+  order?: string;
+  limit?: number;
+  page?: number;
+}
+
 class AccountService extends BaseService<Account> {
   constructor() {
     super(repository);
@@ -56,6 +69,55 @@ class AccountService extends BaseService<Account> {
       ...account,
       role: account.role ? account.role.role : null,
     }));
+  }
+
+  async filterAccounts(options: FilterOptions) {
+    const { username, email, role, brand, status, sortBy, order, limit, page } =
+      options;
+
+    const queryBuilder = this.repository
+      .createQueryBuilder("account")
+      .leftJoinAndSelect("account.brands", "brand")
+      .leftJoinAndSelect("account.role", "role")
+      .leftJoinAndSelect("account.addresses", "addresses");
+
+    if (username) {
+      queryBuilder.andWhere("account.username LIKE :username", {
+        username: `%${username}%`,
+      });
+    }
+
+    if (email) {
+      queryBuilder.andWhere("account.email LIKE :email", {
+        email: `%${email}%`,
+      });
+    }
+
+    if (role) {
+      queryBuilder.andWhere("role.role = :role", { role });
+    }
+
+    if (brand) {
+      queryBuilder.andWhere("brand.name = :brand", { brand });
+    }
+
+    if (status) {
+      queryBuilder.andWhere("account.status = :status", { status });
+    }
+
+    queryBuilder
+      .orderBy(`account.${sortBy}`, order.toUpperCase() as "ASC" | "DESC")
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [accounts, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      items: accounts,
+      total,
+      page,
+      limit,
+    };
   }
 
   async getStaffByBrandAndStatus(brandId: string, status?: StatusEnum) {
