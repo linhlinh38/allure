@@ -72,7 +72,7 @@ export class Brand extends BaseEntity {
   district: string;
 
   @Expose()
-  @Column({ type: 'varchar', length: 100})
+  @Column({ type: 'varchar', length: 100, nullable: true})
   ward: string;
 
   @Expose()
