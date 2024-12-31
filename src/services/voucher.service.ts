@@ -22,6 +22,7 @@ import {
   VoucherVisibilityEnum,
   VoucherWalletStatus,
   VoucherUnavailableReasonEnum,
+  OrderEnum,
 } from '../utils/enum';
 import { Order } from '../entities/order.entity';
 import { orderRepository } from '../repositories/order.repository';
@@ -247,10 +248,12 @@ class VoucherService extends BaseService<Voucher> {
           },
         })
       );
+    console.log(bothAvailableAndUnavailableVouchers);
+
     const availableVouchers = [];
     const unAvailableVouchers = [];
 
-    this.categorizeAvaiAndUnavaiVouchers(
+    await this.categorizeAvaiAndUnavaiVouchers(
       bothAvailableAndUnavailableVouchers,
       originalClassifications,
       unAvailableVouchers,
@@ -352,7 +355,7 @@ class VoucherService extends BaseService<Voucher> {
     const availableVouchers = [];
     const unAvailableVouchers = [];
 
-    this.categorizeAvaiAndUnavaiVouchers(
+    await this.categorizeAvaiAndUnavaiVouchers(
       bothAvailableAndUnavailableVouchers,
       originalClassifications,
       unAvailableVouchers,
@@ -375,15 +378,19 @@ class VoucherService extends BaseService<Voucher> {
     quantityMap: Map<string, number>,
     availableVouchers: any[]
   ) {
-    for(const voucher of bothAvailableAndUnavailableVouchers) {
-      if(new Date(voucher.startTime) > new Date()) {
+    for (const voucher of bothAvailableAndUnavailableVouchers) {
+      let discount = this.calculateDiscountVoucherForProductClassifications(
+        originalClassifications,
+        quantityMap,
+        voucher
+      );
+      if (new Date(voucher.startTime) > new Date()) {
         unAvailableVouchers.push({
           ...voucher,
           reason: VoucherUnavailableReasonEnum.NOT_START_YET,
           used: await this.getPercentageUsedOfVoucher(voucher),
         });
-      }
-      if ((voucher.applyType = VoucherApplyTypeEnum.SPECIFIC)) {
+      } else if ((voucher.applyType = VoucherApplyTypeEnum.SPECIFIC)) {
         const applyProductIds = voucher.applyProducts.map(
           (product) => product.id
         );
@@ -398,11 +405,17 @@ class VoucherService extends BaseService<Voucher> {
             used: await this.getPercentageUsedOfVoucher(voucher),
           });
         } else {
+          discount = this.calculateDiscountVoucherForProductClassifications(
+            applyClassifications,
+            quantityMap,
+            voucher
+          );
           totalPrice = this.getTotalPrice(applyClassifications, quantityMap);
           if (!voucher.minOrderValue || totalPrice >= voucher.minOrderValue) {
             availableVouchers.push({
               ...voucher,
               used: await this.getPercentageUsedOfVoucher(voucher),
+              discount,
             });
           } else
             unAvailableVouchers.push({
@@ -416,6 +429,7 @@ class VoucherService extends BaseService<Voucher> {
           availableVouchers.push({
             ...voucher,
             used: await this.getPercentageUsedOfVoucher(voucher),
+            discount,
           });
         } else
           unAvailableVouchers.push({
@@ -424,7 +438,7 @@ class VoucherService extends BaseService<Voucher> {
             used: await this.getPercentageUsedOfVoucher(voucher),
           });
       }
-    };
+    }
   }
 
   async getBestPlatformVouchersForProducts(
@@ -605,7 +619,7 @@ class VoucherService extends BaseService<Voucher> {
   }
 
   async getPercentageUsedOfVoucher(voucher: Voucher) {
-    if(voucher.visibility == VoucherVisibilityEnum.WALLET) {
+    if (voucher.visibility == VoucherVisibilityEnum.WALLET) {
       return 0;
     }
     if (voucher.visibility == VoucherVisibilityEnum.PUBLIC) {
@@ -804,114 +818,221 @@ class VoucherService extends BaseService<Voucher> {
 
   applyShopVoucher(childOrder: Order) {
     const voucher = childOrder.voucher;
-    console.log(voucher);
 
-    let sumPrice = childOrder.orderDetails.reduce(
-      (sum, orderDetail) => sum + orderDetail.subTotal,
-      0
+    let sumPrice = childOrder.orderDetails.reduce((total, orderDetail) => {
+      return total + orderDetail.subTotal;
+    }, 0);
+    let applyOrderDetails = childOrder.orderDetails;
+    let applyProductClassificationIds = applyOrderDetails.map(
+      (orderDetail) => orderDetail.productClassification.id
     );
+    if (voucher.applyType == VoucherApplyTypeEnum.SPECIFIC) {
+      const applyProductIds = voucher.applyProducts.map(
+        (product) => product.id
+      );
+      applyProductClassificationIds = childOrder.orderDetails
+        .filter((orderDetail) => {
+          if (orderDetail.type == OrderEnum.FLASH_SALE) {
+            return applyProductIds.includes(
+              orderDetail.productClassification.productDiscount.product?.id
+            );
+          }
+          if (orderDetail.type == OrderEnum.PRE_ORDER) {
+            return applyProductIds.includes(
+              orderDetail.productClassification.preOrderProduct.product?.id
+            );
+          }
+          return applyProductIds.includes(
+            orderDetail.productClassification.product?.id
+          );
+        })
+        .map((orderDetail) => orderDetail.productClassification.id);
+      sumPrice = applyOrderDetails.reduce((total, orderDetail) => {
+        return total + orderDetail.subTotal;
+      }, 0);
+    }
     if (voucher.minOrderValue) {
       if (sumPrice < voucher.minOrderValue) {
         throw new BadRequestError(`Minimum order value is not enough`);
       }
     }
-    if (voucher.discountType == DiscountTypeEnum.AMOUNT.toString()) {
-      childOrder.orderDetails.forEach((orderDetail) => {
-        orderDetail.shopVoucherDiscount = Math.round(
-          Math.min(
-            (orderDetail.subTotal / sumPrice) * voucher.discountValue,
-            orderDetail.subTotal
+    let discount = 0;
+    if (voucher.discountType == DiscountTypeEnum.AMOUNT) {
+      discount = voucher.maxDiscount
+        ? Math.min(sumPrice, voucher.discountValue, voucher.maxDiscount)
+        : Math.min(sumPrice, voucher.discountValue);
+    } else if (voucher.discountType == DiscountTypeEnum.PERCENTAGE) {
+      discount = voucher.maxDiscount
+        ? Math.min(
+            sumPrice,
+            sumPrice * voucher.discountValue,
+            voucher.maxDiscount
           )
-        );
+        : Math.min(sumPrice, sumPrice * voucher.discountValue);
+    }
+    applyOrderDetails.forEach((orderDetail) => {
+      if (
+        applyProductClassificationIds.includes(
+          orderDetail.productClassification.id
+        )
+      ) {
         orderDetail.shopVoucherDiscount = Math.round(
-          Math.min(
-            (orderDetail.subTotal / sumPrice) * voucher.discountValue,
-            orderDetail.subTotal
-          )
+          (orderDetail.subTotal / sumPrice) * discount
         );
         orderDetail.totalPrice =
           orderDetail.subTotal - orderDetail.shopVoucherDiscount;
-      });
-    } else if (voucher.discountType == DiscountTypeEnum.PERCENTAGE.toString()) {
-      let discountValueToAmount = Math.round(sumPrice * voucher.discountValue);
-      if (voucher.maxDiscount)
-        discountValueToAmount = Math.min(
-          discountValueToAmount,
-          voucher.maxDiscount
-        );
+      }
+    });
+    // if (voucher.discountType == DiscountTypeEnum.AMOUNT.toString()) {
+    //   childOrder.orderDetails.forEach((orderDetail) => {
+    //     orderDetail.shopVoucherDiscount = Math.round(
+    //       Math.min(
+    //         (orderDetail.subTotal / sumPrice) * voucher.discountValue,
+    //         orderDetail.subTotal
+    //       )
+    //     );
+    //     orderDetail.shopVoucherDiscount = Math.round(
+    //       Math.min(
+    //         (orderDetail.subTotal / sumPrice) * voucher.discountValue,
+    //         orderDetail.subTotal
+    //       )
+    //     );
+    //     orderDetail.totalPrice =
+    //       orderDetail.subTotal - orderDetail.shopVoucherDiscount;
+    //   });
+    // } else if (voucher.discountType == DiscountTypeEnum.PERCENTAGE.toString()) {
+    //   let discountValueToAmount = Math.round(sumPrice * voucher.discountValue);
+    //   if (voucher.maxDiscount)
+    //     discountValueToAmount = Math.min(
+    //       discountValueToAmount,
+    //       voucher.maxDiscount
+    //     );
 
-      childOrder.orderDetails.forEach((orderDetail) => {
-        orderDetail.shopVoucherDiscount = Math.round(
-          Math.min(
-            (orderDetail.subTotal / sumPrice) * discountValueToAmount,
-            orderDetail.subTotal
-          )
-        );
-        orderDetail.shopVoucherDiscount = Math.round(
-          Math.min(
-            (orderDetail.subTotal / sumPrice) * discountValueToAmount,
-            orderDetail.subTotal
-          )
-        );
-        orderDetail.totalPrice =
-          orderDetail.subTotal - orderDetail.shopVoucherDiscount;
-      });
-    } else throw new BadRequestError(`Discount type voucher is not supported`);
+    //   childOrder.orderDetails.forEach((orderDetail) => {
+    //     orderDetail.shopVoucherDiscount = Math.round(
+    //       Math.min(
+    //         (orderDetail.subTotal / sumPrice) * discountValueToAmount,
+    //         orderDetail.subTotal
+    //       )
+    //     );
+    //     orderDetail.shopVoucherDiscount = Math.round(
+    //       Math.min(
+    //         (orderDetail.subTotal / sumPrice) * discountValueToAmount,
+    //         orderDetail.subTotal
+    //       )
+    //     );
+    //     orderDetail.totalPrice =
+    //       orderDetail.subTotal - orderDetail.shopVoucherDiscount;
+    //   });
+    // }
   }
 
   applyPlatformVoucher(totalOrder: Order) {
     const voucher = totalOrder.voucher;
-    const allOrderDetails = totalOrder.children.flatMap(
+    let applyOrderDetails = totalOrder.children.flatMap(
       (order) => order.orderDetails
     );
-    let sumPrice = allOrderDetails.reduce(
-      (sum, orderDetail) => sum + orderDetail.totalPrice,
-      0
+    let sumPrice = applyOrderDetails.reduce((total, orderDetail) => {
+      return total + orderDetail.totalPrice;
+    }, 0);
+    let applyProductClassificationIds = applyOrderDetails.map(
+      (orderDetail) => orderDetail.productClassification.id
     );
+    if (voucher.applyType == VoucherApplyTypeEnum.SPECIFIC) {
+      const applyProductIds = voucher.applyProducts.map(
+        (product) => product.id
+      );
+      applyProductClassificationIds = applyOrderDetails
+        .filter((orderDetail) => {
+          if (orderDetail.type == OrderEnum.FLASH_SALE) {
+            return applyProductIds.includes(
+              orderDetail.productClassification.productDiscount.product?.id
+            );
+          }
+          if (orderDetail.type == OrderEnum.PRE_ORDER) {
+            return applyProductIds.includes(
+              orderDetail.productClassification.preOrderProduct.product?.id
+            );
+          }
+          return applyProductIds.includes(
+            orderDetail.productClassification.product?.id
+          );
+        })
+        .map((orderDetail) => orderDetail.productClassification.id);
+      sumPrice = applyOrderDetails.reduce((total, orderDetail) => {
+        return total + orderDetail.subTotal;
+      }, 0);
+    }
     if (voucher.minOrderValue) {
       if (sumPrice < voucher.minOrderValue) {
         throw new BadRequestError(`Minimum order value is not enough`);
       }
     }
-    if (voucher.discountType == DiscountTypeEnum.AMOUNT.toString()) {
-      allOrderDetails.forEach((orderDetail) => {
-        orderDetail.platformVoucherDiscount = Math.round(
-          Math.min(
-            (orderDetail.totalPrice / sumPrice) * voucher.discountValue,
-            orderDetail.totalPrice
+    let discount = 0;
+    if (voucher.discountType == DiscountTypeEnum.AMOUNT) {
+      discount = voucher.maxDiscount
+        ? Math.min(sumPrice, voucher.discountValue, voucher.maxDiscount)
+        : Math.min(sumPrice, voucher.discountValue);
+    } else if (voucher.discountType == DiscountTypeEnum.PERCENTAGE) {
+      discount = voucher.maxDiscount
+        ? Math.min(
+            sumPrice,
+            sumPrice * voucher.discountValue,
+            voucher.maxDiscount
           )
-        );
+        : Math.min(sumPrice, sumPrice * voucher.discountValue);
+    }
+    applyOrderDetails.forEach((orderDetail) => {
+      if (
+        applyProductClassificationIds.includes(
+          orderDetail.productClassification.id
+        )
+      ) {
         orderDetail.platformVoucherDiscount = Math.round(
-          Math.min(
-            (orderDetail.totalPrice / sumPrice) * voucher.discountValue,
-            orderDetail.totalPrice
-          )
+          (orderDetail.subTotal / sumPrice) * discount
         );
         orderDetail.totalPrice -= orderDetail.platformVoucherDiscount;
-      });
-    } else if (voucher.discountType == DiscountTypeEnum.PERCENTAGE.toString()) {
-      let discountValueToAmount = Math.round(sumPrice * voucher.discountValue);
-      if (voucher.maxDiscount)
-        discountValueToAmount = Math.min(
-          discountValueToAmount,
-          voucher.maxDiscount
-        );
-      allOrderDetails.forEach((orderDetail) => {
-        orderDetail.platformVoucherDiscount = Math.round(
-          Math.min(
-            (orderDetail.totalPrice / sumPrice) * discountValueToAmount,
-            orderDetail.totalPrice
-          )
-        );
-        orderDetail.platformVoucherDiscount = Math.round(
-          Math.min(
-            (orderDetail.totalPrice / sumPrice) * discountValueToAmount,
-            orderDetail.totalPrice
-          )
-        );
-        orderDetail.totalPrice -= orderDetail.platformVoucherDiscount;
-      });
-    } else throw new BadRequestError(`Discount type voucher is not supported`);
+      }
+    });
+    // if (voucher.discountType == DiscountTypeEnum.AMOUNT.toString()) {
+    //   allOrderDetails.forEach((orderDetail) => {
+    //     orderDetail.platformVoucherDiscount = Math.round(
+    //       Math.min(
+    //         (orderDetail.totalPrice / sumPrice) * voucher.discountValue,
+    //         orderDetail.totalPrice
+    //       )
+    //     );
+    //     orderDetail.platformVoucherDiscount = Math.round(
+    //       Math.min(
+    //         (orderDetail.totalPrice / sumPrice) * voucher.discountValue,
+    //         orderDetail.totalPrice
+    //       )
+    //     );
+    //     orderDetail.totalPrice -= orderDetail.platformVoucherDiscount;
+    //   });
+    // } else if (voucher.discountType == DiscountTypeEnum.PERCENTAGE.toString()) {
+    //   let discountValueToAmount = Math.round(sumPrice * voucher.discountValue);
+    //   if (voucher.maxDiscount)
+    //     discountValueToAmount = Math.min(
+    //       discountValueToAmount,
+    //       voucher.maxDiscount
+    //     );
+    //   allOrderDetails.forEach((orderDetail) => {
+    //     orderDetail.platformVoucherDiscount = Math.round(
+    //       Math.min(
+    //         (orderDetail.totalPrice / sumPrice) * discountValueToAmount,
+    //         orderDetail.totalPrice
+    //       )
+    //     );
+    //     orderDetail.platformVoucherDiscount = Math.round(
+    //       Math.min(
+    //         (orderDetail.totalPrice / sumPrice) * discountValueToAmount,
+    //         orderDetail.totalPrice
+    //       )
+    //     );
+    //     orderDetail.totalPrice -= orderDetail.platformVoucherDiscount;
+    //   });
+    // } else throw new BadRequestError(`Discount type voucher is not supported`);
   }
 
   calculateOrderPrice(totalOrder: Order) {
