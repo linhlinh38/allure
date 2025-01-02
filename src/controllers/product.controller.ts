@@ -111,6 +111,19 @@ export default class ProductController {
     }
   }
 
+  static async updateProductStatus(
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      await productService.updateProductStatus(req.params.id, req.body.status);
+      return createNormalResponse(res, "Update product success");
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async create(req: Request, res: Response, next: NextFunction) {
     try {
       await productService.createProduct(req.body);
