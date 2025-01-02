@@ -3,11 +3,23 @@ import { ProductClassification } from "../entities/productClassification.entity"
 import { ProductDiscount } from "../entities/productDiscount.entity";
 import { ProductImage } from "../entities/productImage.entity";
 import { BadRequestError } from "../errors/error";
-import { ProductEnum, StatusEnum } from "../utils/enum";
+import { ProductDiscountEnum, ProductEnum, StatusEnum } from "../utils/enum";
 import { BaseService } from "./base.service";
 import { productService } from "./product.service";
 
 const repository = AppDataSource.getRepository(ProductDiscount);
+interface FilterOptions {
+  startTime?: Date;
+  endTime?: Date;
+  productId?: string;
+  brandId?: string;
+  status?: ProductDiscountEnum;
+  sortBy?: string;
+  order?: string;
+  limit?: number;
+  page?: number;
+}
+
 class ProductDiscountService extends BaseService<ProductDiscount> {
   constructor() {
     super(repository);
@@ -89,6 +101,68 @@ class ProductDiscountService extends BaseService<ProductDiscount> {
       .getMany();
 
     return products;
+  }
+
+  async filterProductDiscounts(options: FilterOptions) {
+    const {
+      startTime,
+      endTime,
+      productId,
+      brandId,
+      status,
+      sortBy,
+      order,
+      limit,
+      page,
+    } = options;
+
+    const queryBuilder = this.repository
+      .createQueryBuilder("productDiscount")
+      .leftJoinAndSelect("productDiscount.product", "product")
+      .leftJoinAndSelect("product.brand", "brand");
+
+    if (startTime) {
+      queryBuilder.andWhere(
+        'to_timestamp(productDiscount.startTime, \'YYYY-MM-DD"T"HH24:MI:SS"Z"\') >= to_timestamp(:startTime, \'YYYY-MM-DD"T"HH24:MI:SS"Z"\')',
+        { startTime }
+      );
+    }
+
+    if (endTime) {
+      queryBuilder.andWhere(
+        'to_timestamp(productDiscount.endTime, \'YYYY-MM-DD"T"HH24:MI:SS"Z"\') <= to_timestamp(:endTime, \'YYYY-MM-DD"T"HH24:MI:SS"Z"\')',
+        { endTime }
+      );
+    }
+
+    if (productId) {
+      queryBuilder.andWhere("product.id = :productId", { productId });
+    }
+
+    if (brandId) {
+      queryBuilder.andWhere("brand.id = :brandId", { brandId });
+    }
+
+    if (status) {
+      queryBuilder.andWhere("productDiscount.status = :status", { status });
+    }
+
+    queryBuilder
+      .orderBy(
+        `productDiscount.${sortBy}`,
+        order.toUpperCase() as "ASC" | "DESC"
+      )
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [productDiscounts, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      items: productDiscounts,
+      total,
+      page,
+      limit,
+    };
   }
 
   async beforeCreate(data: ProductDiscount) {
