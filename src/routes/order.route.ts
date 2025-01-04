@@ -16,4 +16,5 @@ orderRouter.post(
 orderRouter.post('/create-normal', validate(OrderNormalCreateSchema), OrderController.createNormal);
 orderRouter.post('/create-pre-order', OrderController.createPreOrder);
 orderRouter.post('/create-group-order', OrderController.createGroupOrder);
+orderRouter.post('/create-group-order', OrderController.createGroupOrder);
 export default orderRouter;
