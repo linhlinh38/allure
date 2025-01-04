@@ -82,6 +82,7 @@ class GroupProductService extends BaseService<GroupProduct> {
     groupProduct.name = groupProductBody.name;
     groupProduct.description = groupProductBody.description;
     groupProduct.criterias = [];
+    groupProduct.maxBuyAmountEachPerson = groupProductBody.maxBuyAmountEachPerson;
     for (const criteria of groupProductBody.criterias) {
       const groupBuyingCriteria = new GroupBuyingCriteria();
       groupBuyingCriteria.threshold = criteria.threshold;
@@ -127,7 +128,7 @@ class GroupProductService extends BaseService<GroupProduct> {
       where: { id: In(groupProductBody.productIds) },
     });
     groupProduct.products = products;
-    await repository.save(groupProduct);
+    return await repository.save(groupProduct);
   }
 
   constructor() {
