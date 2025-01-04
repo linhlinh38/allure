@@ -64,8 +64,7 @@ export default class GroupProductController {
       const groupProductBody = plainToInstance(GroupProductRequest, req.body, {
         excludeExtraneousValues: true,
       });
-      await groupProductService.createGroupProduct(groupProductBody);
-      return createNormalResponse(res, 'Create group product success');
+      return createNormalResponse(res, 'Create group product success', await groupProductService.createGroupProduct(groupProductBody));
     } catch (err) {
       next(err);
     }
