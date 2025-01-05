@@ -147,8 +147,10 @@ export default class ProductDiscountController {
 
   static async create(req: Request, res: Response, next: NextFunction) {
     try {
-      await productDiscountService.create(req.body);
-      return createNormalResponse(res, "Create Product Discount success");
+      const productDiscount = await productDiscountService.create(req.body);
+      return createNormalResponse(res, "Create Product Discount success", {
+        id: productDiscount.id,
+      });
     } catch (err) {
       next(err);
     }
