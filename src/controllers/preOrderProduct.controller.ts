@@ -150,8 +150,10 @@ export default class PreOrderProductController {
 
   static async create(req: Request, res: Response, next: NextFunction) {
     try {
-      await preOrderProductService.create(req.body);
-      return createNormalResponse(res, "Create PreOrderProduct success");
+      const preOrderProduct = await preOrderProductService.create(req.body);
+      return createNormalResponse(res, "Create PreOrderProduct success", {
+        id: preOrderProduct.id,
+      });
     } catch (err) {
       next(err);
     }
