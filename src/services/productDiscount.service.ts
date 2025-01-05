@@ -25,11 +25,26 @@ class ProductDiscountService extends BaseService<ProductDiscount> {
     super(repository);
   }
   async getAll() {
-    const products = repository.find({
+    const productDiscount = repository.find({
       relations: ["product"],
     });
 
-    return products;
+    return productDiscount;
+  }
+
+  async getById(id: string) {
+    const productDiscount = repository.find({
+      where: {
+        id,
+      },
+      relations: [
+        "product",
+        "productClassifications",
+        "productClassifications.images",
+      ],
+    });
+
+    return productDiscount;
   }
 
   async getProductDiscountActiveOfBrand(
