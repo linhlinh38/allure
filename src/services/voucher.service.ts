@@ -752,23 +752,27 @@ class VoucherService extends BaseService<Voucher> {
     if (shopVoucher.amount == 0) {
       throw new BadRequestError('Shop voucher is out of stock');
     }
-    // Check if voucher was used in any order
-    const existingOrder = await orderRepository.findOne({
+    const voucherWallet = await voucherWalletRepository.findOne({
       where: {
-        account: { id: accountId },
+        owner: { id: accountId },
         voucher: { id: voucherId },
-        status: Not(
-          In([
-            ShippingStatusEnum.CANCELLED,
-            ShippingStatusEnum.CANCELLED_BY_SHOP,
-            ShippingStatusEnum.RETURN_REFUND,
-          ])
-        ),
       },
-      relations: ['voucher', 'account'],
     });
-    if (existingOrder) {
+    if (shopVoucher.visibility == VoucherVisibilityEnum.WALLET) {
+      if (!voucherWallet)
+        throw new BadRequestError('Shop voucher is not collectable');
+    }
+    if (voucherWallet && voucherWallet.status == VoucherWalletStatus.USED)
       throw new BadRequestError('Shop voucher has already been used');
+    if (
+      !voucherWallet ||
+      voucherWallet.status == VoucherWalletStatus.NOT_USED
+    ) {
+      return voucherWalletRepository.create({
+        owner: { id: accountId },
+        voucher: { id: voucherId },
+        status: VoucherWalletStatus.USED,
+      });
     }
   }
 
@@ -796,23 +800,28 @@ class VoucherService extends BaseService<Voucher> {
     if (platformVoucher.amount == 0) {
       throw new BadRequestError('Platform voucher is out of stock');
     }
-    // Check if voucher was used in any order
-    const existingOrder = await orderRepository.findOne({
+    const voucherWallet = await voucherWalletRepository.findOne({
       where: {
-        account: { id: accountId },
+        owner: { id: accountId },
         voucher: { id: voucherId },
-        status: Not(
-          In([
-            ShippingStatusEnum.CANCELLED,
-            ShippingStatusEnum.CANCELLED_BY_SHOP,
-            ShippingStatusEnum.RETURN_REFUND,
-          ])
-        ),
       },
-      relations: ['voucher', 'account'],
     });
-    if (existingOrder) {
+    if (platformVoucher.visibility == VoucherVisibilityEnum.WALLET) {
+      if (!voucherWallet)
+        throw new BadRequestError('Platform voucher is not collectable');
+    }
+    if (voucherWallet && voucherWallet.status == VoucherWalletStatus.USED)
       throw new BadRequestError('Platform voucher has already been used');
+    if (!voucherWallet) {
+      return voucherWalletRepository.create({
+        owner: { id: accountId },
+        voucher: { id: voucherId },
+        status: VoucherWalletStatus.USED,
+      });
+    }
+    if (voucherWallet && voucherWallet.status == VoucherWalletStatus.NOT_USED) {
+      voucherWallet.status = VoucherWalletStatus.USED;
+      return voucherWallet;
     }
   }
 
