@@ -103,7 +103,7 @@ class VoucherService extends BaseService<Voucher> {
       if (!voucherWallet) return false;
       if (voucherWallet.status == VoucherWalletStatus.USED) return false;
     }
-    if ((voucher.applyType == VoucherApplyTypeEnum.SPECIFIC)) {
+    if (voucher.applyType == VoucherApplyTypeEnum.SPECIFIC) {
       const applyProducts = voucher.applyProducts;
       const applyProductIds = applyProducts.map((productId) => productId.id);
       classifications = this.getApplyClassifications(
@@ -389,7 +389,7 @@ class VoucherService extends BaseService<Voucher> {
           reason: VoucherUnavailableReasonEnum.NOT_START_YET,
           used: await this.getPercentageUsedOfVoucher(voucher),
         });
-      } else if ((voucher.applyType == VoucherApplyTypeEnum.SPECIFIC)) {
+      } else if (voucher.applyType == VoucherApplyTypeEnum.SPECIFIC) {
         const applyProductIds = voucher.applyProducts.map(
           (product) => product.id
         );
@@ -618,18 +618,13 @@ class VoucherService extends BaseService<Voucher> {
   }
 
   async getPercentageUsedOfVoucher(voucher: Voucher) {
-    if (voucher.visibility == VoucherVisibilityEnum.WALLET) {
-      return 0;
-    }
-    if (voucher.visibility == VoucherVisibilityEnum.PUBLIC) {
-      const usedVouchers = await voucherWalletRepository.count({
-        where: {
-          voucher: { id: voucher.id },
-          status: VoucherWalletStatus.USED,
-        },
-      });
-      return (usedVouchers / (usedVouchers + voucher.amount)).toFixed(2);
-    }
+    const usedVouchers = await voucherWalletRepository.count({
+      where: {
+        voucher: { id: voucher.id },
+        status: VoucherWalletStatus.USED,
+      },
+    });
+    return (usedVouchers / (usedVouchers + voucher.amount)).toFixed(2);
   }
 
   calculateDiscountVoucherForProductClassifications(
