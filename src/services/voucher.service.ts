@@ -103,7 +103,7 @@ class VoucherService extends BaseService<Voucher> {
       if (!voucherWallet) return false;
       if (voucherWallet.status == VoucherWalletStatus.USED) return false;
     }
-    if ((voucher.applyType = VoucherApplyTypeEnum.SPECIFIC)) {
+    if ((voucher.applyType == VoucherApplyTypeEnum.SPECIFIC)) {
       const applyProducts = voucher.applyProducts;
       const applyProductIds = applyProducts.map((productId) => productId.id);
       classifications = this.getApplyClassifications(
@@ -248,7 +248,6 @@ class VoucherService extends BaseService<Voucher> {
           },
         })
       );
-    console.log(bothAvailableAndUnavailableVouchers);
 
     const availableVouchers = [];
     const unAvailableVouchers = [];
@@ -390,7 +389,7 @@ class VoucherService extends BaseService<Voucher> {
           reason: VoucherUnavailableReasonEnum.NOT_START_YET,
           used: await this.getPercentageUsedOfVoucher(voucher),
         });
-      } else if ((voucher.applyType = VoucherApplyTypeEnum.SPECIFIC)) {
+      } else if ((voucher.applyType == VoucherApplyTypeEnum.SPECIFIC)) {
         const applyProductIds = voucher.applyProducts.map(
           (product) => product.id
         );
