@@ -23,6 +23,7 @@ export enum StatusEnum {
 }
 
 export enum ShippingStatusEnum {
+  JOIN_GROUP_BUYING = "JOIN_GROUP_BUYING",
   TO_PAY = 'TO_PAY',
   WAIT_FOR_SHOP_CONFIRM = 'WAIT_FOR_SHOP_CONFIRM',
   TO_SHIP = 'TO_SHIP',
