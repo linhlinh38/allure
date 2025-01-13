@@ -126,8 +126,10 @@ export default class ProductController {
 
   static async create(req: Request, res: Response, next: NextFunction) {
     try {
-      await productService.createProduct(req.body);
-      return createNormalResponse(res, "Create product success");
+      const product = await productService.createProduct(req.body);
+      return createNormalResponse(res, "Create product success", {
+        id: product.id,
+      });
     } catch (err) {
       next(err);
     }

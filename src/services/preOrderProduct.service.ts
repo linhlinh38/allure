@@ -30,6 +30,49 @@ class PreOrderProductService extends BaseService<PreOrderProduct> {
     super(repository);
   }
 
+  async getAll() {
+    const preOrderProduct = await this.repository
+      .createQueryBuilder("preOrderProduct")
+      .leftJoinAndSelect("preOrderProduct.product", "product")
+      .leftJoinAndSelect(
+        "preOrderProduct.productClassifications",
+        "productClassifications",
+        "productClassifications.status = :classificationStatus",
+        { classificationStatus: StatusEnum.ACTIVE }
+      )
+      .leftJoinAndSelect(
+        "productClassifications.images",
+        "classificationImages",
+        "classificationImages.status = :imageStatus",
+        { imageStatus: StatusEnum.ACTIVE }
+      )
+      .getMany();
+
+    return preOrderProduct;
+  }
+
+  async getById(id: string) {
+    const preOrderProduct = await this.repository
+      .createQueryBuilder("preOrderProduct")
+      .leftJoinAndSelect("preOrderProduct.product", "product")
+      .leftJoinAndSelect(
+        "preOrderProduct.productClassifications",
+        "productClassifications",
+        "productClassifications.status = :classificationStatus",
+        { classificationStatus: StatusEnum.ACTIVE }
+      )
+      .leftJoinAndSelect(
+        "productClassifications.images",
+        "classificationImages",
+        "classificationImages.status = :imageStatus",
+        { imageStatus: StatusEnum.ACTIVE }
+      )
+      .where("preOrderProduct.id = :id", { id })
+      .getOne();
+
+    return preOrderProduct;
+  }
+
   async getPreOrderProductActiveOfBrand(
     brandId: string
   ): Promise<PreOrderProduct[]> {
@@ -39,9 +82,16 @@ class PreOrderProductService extends BaseService<PreOrderProduct> {
       .leftJoinAndSelect("product.brand", "brand")
       .leftJoinAndSelect(
         "preOrderProduct.productClassifications",
-        "productClassifications"
+        "preOrderProductClassifications",
+        "preOrderProductClassifications.status = :classificationStatus",
+        { classificationStatus: StatusEnum.ACTIVE }
       )
-      .leftJoinAndSelect("productClassifications.images", "images")
+      .leftJoinAndSelect(
+        "preOrderProductClassifications.images",
+        "preOrderProductClassificationsImages",
+        "preOrderProductClassificationsImages.status = :imageStatus",
+        { imageStatus: StatusEnum.ACTIVE }
+      )
       .where("preOrderProduct.status = :status", {
         status: PreOrderProductEnum.ACTIVE,
       })
@@ -61,9 +111,16 @@ class PreOrderProductService extends BaseService<PreOrderProduct> {
       .leftJoinAndSelect("product.brand", "brand")
       .leftJoinAndSelect(
         "preOrderProduct.productClassifications",
-        "productClassifications"
+        "preOrderProductClassifications",
+        "preOrderProductClassifications.status = :classificationStatus",
+        { classificationStatus: StatusEnum.ACTIVE }
       )
-      .leftJoinAndSelect("productClassifications.images", "images")
+      .leftJoinAndSelect(
+        "preOrderProductClassifications.images",
+        "preOrderProductClassificationsImages",
+        "preOrderProductClassificationsImages.status = :imageStatus",
+        { imageStatus: StatusEnum.ACTIVE }
+      )
       // .andWhere("product.status = :productStatus", {
       //   productStatus: ProductEnum.,
       // })
@@ -82,9 +139,16 @@ class PreOrderProductService extends BaseService<PreOrderProduct> {
       .leftJoinAndSelect("product.brand", "brand")
       .leftJoinAndSelect(
         "preOrderProduct.productClassifications",
-        "productClassifications"
+        "preOrderProductClassifications",
+        "preOrderProductClassifications.status = :classificationStatus",
+        { classificationStatus: StatusEnum.ACTIVE }
       )
-      .leftJoinAndSelect("productClassifications.images", "images")
+      .leftJoinAndSelect(
+        "preOrderProductClassifications.images",
+        "preOrderProductClassificationsImages",
+        "preOrderProductClassificationsImages.status = :imageStatus",
+        { imageStatus: StatusEnum.ACTIVE }
+      )
       // .andWhere("product.status = :productStatus", {
       //   productStatus: ProductEnum.,
       // })
@@ -110,7 +174,19 @@ class PreOrderProductService extends BaseService<PreOrderProduct> {
     const queryBuilder = this.repository
       .createQueryBuilder("preOrderProduct")
       .leftJoinAndSelect("preOrderProduct.product", "product")
-      .leftJoinAndSelect("product.brand", "brand");
+      .leftJoinAndSelect("product.brand", "brand")
+      .leftJoinAndSelect(
+        "preOrderProduct.productClassifications",
+        "productClassifications",
+        "productClassifications.status = :status",
+        { status: StatusEnum.ACTIVE }
+      )
+      .leftJoinAndSelect(
+        "productClassifications.images",
+        "images",
+        "images.status = :imageStatus",
+        { imageStatus: StatusEnum.ACTIVE }
+      );
 
     if (startTime) {
       queryBuilder.andWhere(
