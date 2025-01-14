@@ -66,6 +66,8 @@ class OrderService extends BaseService<Order> {
           productClassification: {
             images: true,
             product: { brand: true, images: true },
+            productDiscount: { product: { brand: true, images: true } },
+            preOrderProduct: { product: { brand: true, images: true } },
           },
         },
         voucher: true,
