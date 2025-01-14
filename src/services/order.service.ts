@@ -142,6 +142,24 @@ class OrderService extends BaseService<Order> {
           },
         },
       },
+      {
+        ...commonConditions.where,
+        orderDetails: {
+          productClassification: {
+            preOrderProduct: {
+              product: { brand: { name: ILike(`%${search}%`) } },
+            },
+          },
+        },
+      },
+      {
+        ...commonConditions.where,
+        orderDetails: {
+          productDiscount: {
+            product: { brand: { name: ILike(`%${search}%`) } },
+          },
+        },
+      },
     ];
     return await repository.find({
       ...commonConditions,
