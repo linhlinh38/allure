@@ -16,6 +16,7 @@ import voucherRouter from './voucher.route';
 import groupProductRouter from './groupProduct.route';
 import groupBuyingRouter from './groupBuying.route';
 import serviceRouter from './service.route';
+import paymentRouter from './payment.route';
 
 const router = express.Router();
 router.use('/accounts', accountRouter);
@@ -35,4 +36,5 @@ router.use('/vouchers', voucherRouter);
 router.use('/group-products', groupProductRouter);
 router.use('/group-buyings', groupBuyingRouter);
 router.use('/services', serviceRouter);
+router.use('/payments', paymentRouter);
 export default router;
