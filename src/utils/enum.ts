@@ -128,3 +128,9 @@ export enum CancelOrderRequestStatusEnum {
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
 }
+
+export enum TransactionEnum {
+  ORDER = 'ORDER',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}

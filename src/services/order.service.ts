@@ -654,13 +654,12 @@ class OrderService extends BaseService<Order> {
       childOrder.orderDetails.push(orderDetail);
       if (shopVoucher) {
         voucherService.applyShopVoucher(childOrder);
-        childOrder.voucher = shopVoucher;
       }
       //push child order into parent order
       parentOrder.children.push(childOrder);
       if (platformVoucher) {
-        voucherService.applyPlatformVoucher(parentOrder);
         parentOrder.voucher = platformVoucher;
+        voucherService.applyPlatformVoucher(parentOrder);
       }
 
       voucherService.calculateOrderPrice(parentOrder);
@@ -704,7 +703,10 @@ class OrderService extends BaseService<Order> {
       if (orderNormalBody.platformVoucherId) {
         platformVoucher = await voucherRepository.findOne({
           where: { id: orderNormalBody.platformVoucherId },
-          relations: { brand: true },
+          relations: {
+            brand: true,
+            applyProducts: true,
+          },
         });
         const createdPlatformVoucherWallet =
           await voucherService.validatePlatformVoucher(
@@ -748,7 +750,10 @@ class OrderService extends BaseService<Order> {
         if (order.shopVoucherId) {
           shopVoucher = await voucherRepository.findOne({
             where: { id: order.shopVoucherId },
-            relations: ['brand'],
+            relations: {
+              brand: true,
+              applyProducts: true
+            },
           });
           childOrder.voucher = shopVoucher;
         }
