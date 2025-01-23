@@ -818,7 +818,7 @@ class OrderService extends BaseService<Order> {
       voucherService.calculateOrderPrice(parentOrder);
 
       //check its payment method and corresponding logic for each method
-      await this.updateStatusAndStockQuantityAccordingToPaymentMethod(
+      const statusTrackings = await this.updateStatusAndStockQuantityAccordingToPaymentMethod(
         parentOrder,
         accountId,
         queryRunner
@@ -828,6 +828,8 @@ class OrderService extends BaseService<Order> {
         Order,
         parentOrder
       );
+
+      await queryRunner.manager.save(statusTrackings);
 
       //remove cart items after order has been created
       const productClassificationIds = orderNormalBody.orders.flatMap((order) =>
@@ -911,12 +913,12 @@ class OrderService extends BaseService<Order> {
   ) {
     //case 1: payment method = CASH
     if (parentOrder.paymentMethod == PaymentMethodEnum.CASH) {
-      await this.updateOrderStatusBeforeCreation(
+      const statusTrackings = this.updateOrderStatusBeforeCreation(
         parentOrder,
-        ShippingStatusEnum.WAIT_FOR_CONFIRMATION,
-        queryRunner
+        ShippingStatusEnum.WAIT_FOR_CONFIRMATION
       );
       await this.updateDecreaseStockQuantity(parentOrder, queryRunner);
+      return statusTrackings;
     }
     //case 2: payment method = WALLET
     else if (parentOrder.paymentMethod == PaymentMethodEnum.WALLET) {
@@ -928,31 +930,31 @@ class OrderService extends BaseService<Order> {
       });
       //check balance if it is NOT enough
       if (!wallet || wallet.balance < parentOrder.totalPrice) {
-        await this.updateOrderStatusBeforeCreation(
+        const statusTrackings = this.updateOrderStatusBeforeCreation(
           parentOrder,
           ShippingStatusEnum.TO_PAY,
-          queryRunner
         );
+        return statusTrackings;
       }
       //check balance if it is enough
       else {
         wallet.balance -= parentOrder.totalPrice;
         await queryRunner.manager.save(Wallet, wallet);
-        await this.updateOrderStatusBeforeCreation(
+        const statusTrackings =  this.updateOrderStatusBeforeCreation(
           parentOrder,
-          ShippingStatusEnum.WAIT_FOR_CONFIRMATION,
-          queryRunner
+          ShippingStatusEnum.WAIT_FOR_CONFIRMATION
         );
         await this.updateDecreaseStockQuantity(parentOrder, queryRunner);
+        return statusTrackings;
       }
     }
     //case 3: payment method = BANK_TRANSFER
     else if (parentOrder.paymentMethod == PaymentMethodEnum.BANK_TRANSFER) {
-      await this.updateOrderStatusBeforeCreation(
+      const statusTrackings = this.updateOrderStatusBeforeCreation(
         parentOrder,
-        ShippingStatusEnum.TO_PAY,
-        queryRunner
+        ShippingStatusEnum.TO_PAY
       );
+      return statusTrackings;
     }
   }
 
@@ -972,10 +974,9 @@ class OrderService extends BaseService<Order> {
     }
   }
 
-  async updateOrderStatusBeforeCreation(
+  updateOrderStatusBeforeCreation(
     parentOrder: Order,
-    status: ShippingStatusEnum,
-    queryRunner: QueryRunner
+    status: ShippingStatusEnum
   ) {
     //update status for parent order
     parentOrder.status = status;
@@ -997,11 +998,7 @@ class OrderService extends BaseService<Order> {
       statusTracking.status = status;
       return statusTracking;
     });
-    await queryRunner.manager.save(statusTracking);
-    await queryRunner.manager.save(StatusTracking, [
-      statusTracking,
-      ...statusTrackings,
-    ]);
+    return [statusTracking, ...statusTrackings];
   }
 
   async removeItemsFromCartAfterOrder(
