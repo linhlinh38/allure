@@ -1,4 +1,4 @@
-import { ILike, In, IsNull, Not } from 'typeorm';
+import { ILike, In, IsNull, Not, QueryRunner } from 'typeorm';
 import { AppDataSource } from '../dataSource';
 import { BadRequestError } from '../errors/error';
 import { BaseService } from './base.service';
@@ -18,6 +18,7 @@ import { brandRepository } from '../repositories/brand.repository';
 import {
   CancelOrderRequestStatusEnum,
   OrderEnum,
+  PaymentMethodEnum,
   ShippingStatusEnum,
   VoucherVisibilityEnum,
   VoucherWalletStatus,
@@ -34,6 +35,8 @@ import { statusTrackingRepository } from '../repositories/statusTracking.reposit
 import { voucherWalletRepository } from '../repositories/voucherWallet.reposirory';
 import { CancelOrderRequest } from '../entities/cancelOrderRequest.entity';
 import { cancelOrderRequestRepository } from '../repositories/cancelOrderRequest.repository';
+import { walletRepository } from '../repositories/wallet.reposirory';
+import { Wallet } from '../entities/wallet.entity';
 
 const repository = AppDataSource.getRepository(Order);
 class OrderService extends BaseService<Order> {
@@ -166,6 +169,7 @@ class OrderService extends BaseService<Order> {
         where: { id: cancelOrderRequest.order.id },
         relations: {
           voucher: true,
+          orderDetails: { productClassification: true },
           parent: {
             children: {
               voucher: true,
@@ -183,6 +187,8 @@ class OrderService extends BaseService<Order> {
       await cancelOrderRequest.save();
       //refund voucher
       await this.refundVoucherInBothChildAndParentOrder(order);
+      //return back stock quantity
+      await this.returnBackStockQuantity(order);
       //create status tracking
       let statusTracking = new StatusTracking();
       statusTracking.order = order;
@@ -193,15 +199,29 @@ class OrderService extends BaseService<Order> {
     }
   }
 
+  private async returnBackStockQuantity(order: Order) {
+    for (const orderDetail of order.orderDetails) {
+      const productClassification = orderDetail.productClassification;
+      if (productClassification) {
+        productClassification.quantity += orderDetail.quantity;
+        await productClassification.save();
+      }
+    }
+  }
+
   private async refundVoucherInBothChildAndParentOrder(order: Order) {
-    await this.refundVoucher(order);
     const isAllOrdersCancelled =
       order.parent.children.filter(
         (childOrder) =>
           childOrder.id != order.id &&
           childOrder.status == ShippingStatusEnum.CANCELLED
       ).length == 0;
-    if (isAllOrdersCancelled) await this.refundVoucher(order.parent);
+    if (isAllOrdersCancelled)
+      await Promise.all([
+        this.refundVoucher(order.parent),
+        this.refundVoucher(order),
+      ]);
+    else await this.refundVoucher(order);
   }
 
   async getById(orderId: string) {
@@ -287,6 +307,8 @@ class OrderService extends BaseService<Order> {
 
       //refund voucher
       await this.refundVoucherInBothChildAndParentOrder(order);
+      //return back stock quantity
+      await this.returnBackStockQuantity(order);
 
       //create status tracking
       let statusTracking = new StatusTracking();
@@ -341,6 +363,9 @@ class OrderService extends BaseService<Order> {
       await order.save();
       //refund voucher
       await this.refundVoucherInBothChildAndParentOrder(order);
+
+      //return back stock quantity
+      await this.returnBackStockQuantity(order);
 
       //create status tracking
       let statusTracking = new StatusTracking();
@@ -685,7 +710,6 @@ class OrderService extends BaseService<Order> {
         where: { id: orderNormalBody.addressId },
       });
       if (!address) throw new BadRequestError(`Address not found`);
-      const now = new Date();
       let platformVoucher: Voucher = null;
       //init parent order
       const parentOrder: Order = new Order();
@@ -752,7 +776,7 @@ class OrderService extends BaseService<Order> {
             where: { id: order.shopVoucherId },
             relations: {
               brand: true,
-              applyProducts: true
+              applyProducts: true,
             },
           });
           childOrder.voucher = shopVoucher;
@@ -773,37 +797,9 @@ class OrderService extends BaseService<Order> {
           if (item.quantity > productClassification.quantity) {
             throw new BadRequestError('Product is out of stock');
           }
-          //create order detail
-          const orderDetail = new OrderDetail();
-          orderDetail.unitPriceBeforeDiscount = productClassification.price;
-          orderDetail.unitPriceAfterDiscount = productClassification.price;
-          orderDetail.type = OrderEnum.NORMAL;
-          orderDetail.classificationName = productClassification.title;
-          orderDetail.productName =
-            productClassification.product?.name ??
-            productClassification.preOrderProduct?.product?.name ??
-            productClassification.productDiscount?.product?.name;
-          //check product discount event
-          if (productClassification.productDiscount) {
-            orderDetail.unitPriceAfterDiscount =
-              productClassification.price *
-              (1 - productClassification.productDiscount.discount);
-            orderDetail.type = OrderEnum.FLASH_SALE;
-            orderDetail.productDiscount = productClassification.productDiscount;
-          } else if (productClassification.preOrderProduct) {
-            orderDetail.type = OrderEnum.PRE_ORDER;
-          }
-          orderDetail.subTotal =
-            item.quantity * orderDetail.unitPriceAfterDiscount;
-          orderDetail.totalPrice = orderDetail.subTotal;
-          orderDetail.quantity = item.quantity;
-          orderDetail.productClassification = productClassification;
-          //update quantity of product classification
-          productClassification.quantity -= item.quantity;
-          await queryRunner.manager.save(
-            ProductClassification,
-            productClassification
-          );
+          //init order detail
+          const orderDetail = this.initOrderDetail(productClassification, item);
+
           //push order detail into child order
           childOrder.orderDetails.push(orderDetail);
         }
@@ -820,6 +816,13 @@ class OrderService extends BaseService<Order> {
       }
 
       voucherService.calculateOrderPrice(parentOrder);
+
+      //check its payment method and corresponding logic for each method
+      await this.updateStatusAndStockQuantityAccordingToPaymentMethod(
+        parentOrder,
+        accountId,
+        queryRunner
+      );
 
       const createdParentOrder = await queryRunner.manager.save(
         Order,
@@ -843,6 +846,162 @@ class OrderService extends BaseService<Order> {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  private initOrderDetail(
+    productClassification: ProductClassification,
+    item: { productClassificationId: string; quantity: number }
+  ) {
+    const orderDetail = new OrderDetail();
+    orderDetail.unitPriceBeforeDiscount = productClassification.price;
+    orderDetail.unitPriceAfterDiscount = productClassification.price;
+    orderDetail.classificationName = productClassification.title;
+    orderDetail.productName =
+      productClassification.product?.name ??
+      productClassification.preOrderProduct?.product?.name ??
+      productClassification.productDiscount?.product?.name;
+    //check product discount event
+    if (productClassification.productDiscount) {
+      orderDetail.unitPriceAfterDiscount =
+        productClassification.price *
+        (1 - productClassification.productDiscount.discount);
+      orderDetail.type = OrderEnum.FLASH_SALE;
+      orderDetail.productDiscount = productClassification.productDiscount;
+    } else if (productClassification.preOrderProduct) {
+      orderDetail.type = OrderEnum.PRE_ORDER;
+    } else orderDetail.type = OrderEnum.NORMAL;
+    orderDetail.subTotal = item.quantity * orderDetail.unitPriceAfterDiscount;
+    orderDetail.totalPrice = orderDetail.subTotal;
+    orderDetail.quantity = item.quantity;
+    orderDetail.productClassification = productClassification;
+    return orderDetail;
+  }
+
+  private async createStatusTrackingForParentOrder(
+    parentOrder: Order,
+    status: ShippingStatusEnum,
+    queryRunner: QueryRunner
+  ) {
+    //create status tracking for parent order
+    let statusTracking = new StatusTracking();
+    statusTracking.order = parentOrder;
+    statusTracking.updatedBy = new Account();
+    statusTracking.updatedBy.id = parentOrder.account.id;
+    statusTracking.status = status;
+
+    const statusTrackings = parentOrder.children.map((childOrder) => {
+      //create status tracking for child order
+      let statusTracking = new StatusTracking();
+      statusTracking.order = childOrder;
+      statusTracking.updatedBy = new Account();
+      statusTracking.updatedBy.id = parentOrder.account.id;
+      statusTracking.status = status;
+      return statusTracking;
+    });
+    await queryRunner.manager.save(StatusTracking, [
+      statusTracking,
+      ...statusTrackings,
+    ]);
+  }
+
+  private async updateStatusAndStockQuantityAccordingToPaymentMethod(
+    parentOrder: Order,
+    accountId: string,
+    queryRunner: QueryRunner
+  ) {
+    //case 1: payment method = CASH
+    if (parentOrder.paymentMethod == PaymentMethodEnum.CASH) {
+      await this.updateOrderStatusBeforeCreation(
+        parentOrder,
+        ShippingStatusEnum.WAIT_FOR_CONFIRMATION,
+        queryRunner
+      );
+      await this.updateDecreaseStockQuantity(parentOrder, queryRunner);
+    }
+    //case 2: payment method = WALLET
+    else if (parentOrder.paymentMethod == PaymentMethodEnum.WALLET) {
+      //get wallet
+      const wallet = await walletRepository.findOne({
+        where: {
+          owner: { id: accountId },
+        },
+      });
+      //check balance if it is NOT enough
+      if (!wallet || wallet.balance < parentOrder.totalPrice) {
+        await this.updateOrderStatusBeforeCreation(
+          parentOrder,
+          ShippingStatusEnum.TO_PAY,
+          queryRunner
+        );
+      }
+      //check balance if it is enough
+      else {
+        wallet.balance -= parentOrder.totalPrice;
+        await queryRunner.manager.save(Wallet, wallet);
+        await this.updateOrderStatusBeforeCreation(
+          parentOrder,
+          ShippingStatusEnum.WAIT_FOR_CONFIRMATION,
+          queryRunner
+        );
+        await this.updateDecreaseStockQuantity(parentOrder, queryRunner);
+      }
+    }
+    //case 3: payment method = BANK_TRANSFER
+    else if (parentOrder.paymentMethod == PaymentMethodEnum.BANK_TRANSFER) {
+      await this.updateOrderStatusBeforeCreation(
+        parentOrder,
+        ShippingStatusEnum.TO_PAY,
+        queryRunner
+      );
+    }
+  }
+
+  private async updateDecreaseStockQuantity(
+    parentOrder: Order,
+    queryRunner: QueryRunner
+  ) {
+    for (const childOrder of parentOrder.children) {
+      for (const orderDetail of childOrder.orderDetails) {
+        const productClassification = orderDetail.productClassification;
+        productClassification.quantity -= orderDetail.quantity;
+        await queryRunner.manager.save(
+          ProductClassification,
+          productClassification
+        );
+      }
+    }
+  }
+
+  async updateOrderStatusBeforeCreation(
+    parentOrder: Order,
+    status: ShippingStatusEnum,
+    queryRunner: QueryRunner
+  ) {
+    //update status for parent order
+    parentOrder.status = status;
+    //create status tracking for parent order
+    let statusTracking = new StatusTracking();
+    statusTracking.order = parentOrder;
+    statusTracking.updatedBy = new Account();
+    statusTracking.updatedBy.id = parentOrder.account.id;
+    statusTracking.status = status;
+
+    const statusTrackings = parentOrder.children.map((childOrder) => {
+      //update status for child order
+      childOrder.status = status;
+      //create status tracking for child order
+      let statusTracking = new StatusTracking();
+      statusTracking.order = childOrder;
+      statusTracking.updatedBy = new Account();
+      statusTracking.updatedBy.id = parentOrder.account.id;
+      statusTracking.status = status;
+      return statusTracking;
+    });
+    await queryRunner.manager.save(statusTracking);
+    await queryRunner.manager.save(StatusTracking, [
+      statusTracking,
+      ...statusTrackings,
+    ]);
   }
 
   async removeItemsFromCartAfterOrder(
