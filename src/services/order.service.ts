@@ -152,64 +152,95 @@ class OrderService extends BaseService<Order> {
     requestId: string,
     status: CancelOrderRequestStatusEnum
   ) {
-    const cancelOrderRequest = await cancelOrderRequestRepository.findOne({
-      where: {
-        id: requestId,
-      },
-      relations: {
-        order: true,
-      },
-    });
-    if (!cancelOrderRequest) throw new BadRequestError('Request not found');
-    if (status === CancelOrderRequestStatusEnum.REJECTED) {
-      cancelOrderRequest.status = status;
-      await cancelOrderRequest.save();
-    } else if (status === CancelOrderRequestStatusEnum.APPROVED) {
-      const order = await orderRepository.findOne({
-        where: { id: cancelOrderRequest.order.id },
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const cancelOrderRequest = await cancelOrderRequestRepository.findOne({
+        where: {
+          id: requestId,
+        },
         relations: {
-          voucher: true,
-          orderDetails: { productClassification: true },
-          parent: {
-            children: {
-              voucher: true,
-            },
-            voucher: true,
-          },
-          account: true,
+          order: true,
         },
       });
-      //update status of order
-      order.status = ShippingStatusEnum.CANCELLED;
-      await order.save();
-      //update status of request
-      cancelOrderRequest.status = CancelOrderRequestStatusEnum.APPROVED;
-      await cancelOrderRequest.save();
-      //refund voucher
-      await this.refundVoucherInBothChildAndParentOrder(order);
-      //return back stock quantity
-      await this.returnBackStockQuantity(order);
-      //create status tracking
-      let statusTracking = new StatusTracking();
-      statusTracking.order = order;
-      statusTracking.updatedBy = new Account();
-      statusTracking.updatedBy.id = order.account.id;
-      statusTracking.status = status;
-      await statusTracking.save();
+      if (!cancelOrderRequest) throw new BadRequestError('Request not found');
+      if (status === CancelOrderRequestStatusEnum.REJECTED) {
+        cancelOrderRequest.status = status;
+        await queryRunner.manager.save(CancelOrderRequest, cancelOrderRequest);
+      } else if (status === CancelOrderRequestStatusEnum.APPROVED) {
+        const order = await orderRepository.findOne({
+          where: { id: cancelOrderRequest.order.id },
+          relations: {
+            voucher: true,
+            orderDetails: { productClassification: true },
+            parent: {
+              children: {
+                voucher: true,
+              },
+              voucher: true,
+            },
+            account: true,
+          },
+        });
+        await Promise.all([
+          //update order status and save
+          (async () => {
+            order.status = ShippingStatusEnum.CANCELLED;
+            await queryRunner.manager.save(Order, order);
+          })(),
+          //update status of request
+          (async () => {
+            cancelOrderRequest.status = CancelOrderRequestStatusEnum.APPROVED;
+            await queryRunner.manager.save(
+              CancelOrderRequest,
+              cancelOrderRequest
+            );
+          })(),
+          //refund voucher
+          this.refundVoucherInBothChildAndParentOrder(order, queryRunner),
+          //return back stock quantity
+          this.returnBackStockQuantity(order, queryRunner),
+          //create status tracking
+          this.createStatusTracking(
+            order,
+            order.account.id,
+            status,
+            null,
+            queryRunner
+          ),
+        ]);
+        await queryRunner.commitTransaction();
+      }
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
   }
 
-  private async returnBackStockQuantity(order: Order) {
-    for (const orderDetail of order.orderDetails) {
+  private async returnBackStockQuantity(
+    order: Order,
+    queryRunner: QueryRunner
+  ) {
+    const productClassifications = order.orderDetails.map((orderDetail) => {
       const productClassification = orderDetail.productClassification;
       if (productClassification) {
         productClassification.quantity += orderDetail.quantity;
-        await productClassification.save();
+        return productClassification;
       }
-    }
+    });
+    await queryRunner.manager.save(
+      ProductClassification,
+      productClassifications
+    );
   }
 
-  private async refundVoucherInBothChildAndParentOrder(order: Order) {
+  private async refundVoucherInBothChildAndParentOrder(
+    order: Order,
+    queryRunner: QueryRunner
+  ) {
     const isAllOrdersCancelled =
       order.parent.children.filter(
         (childOrder) =>
@@ -218,10 +249,10 @@ class OrderService extends BaseService<Order> {
       ).length == 0;
     if (isAllOrdersCancelled)
       await Promise.all([
-        this.refundVoucher(order.parent),
-        this.refundVoucher(order),
+        this.refundVoucher(order.parent, queryRunner),
+        this.refundVoucher(order, queryRunner),
       ]);
-    else await this.refundVoucher(order);
+    else await this.refundVoucher(order, queryRunner);
   }
 
   async getById(orderId: string) {
@@ -247,146 +278,202 @@ class OrderService extends BaseService<Order> {
     orderId: string,
     userId: string
   ) {
-    const order = await orderRepository.findOne({
-      where: { id: orderId },
-    });
-    if (!order) {
-      throw new BadRequestError(`Order not found`);
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const order = await orderRepository.findOne({
+        where: { id: orderId },
+      });
+      if (!order) {
+        throw new BadRequestError(`Order not found`);
+      }
+      if (
+        status == ShippingStatusEnum.CANCELLED &&
+        ![
+          ShippingStatusEnum.WAIT_FOR_CONFIRMATION,
+          ShippingStatusEnum.TO_PAY,
+          ShippingStatusEnum.PREPARING_ORDER,
+        ].includes(order.status)
+      )
+        throw new BadRequestError(
+          `Can not cancel order due to current status ${order.status}`
+        );
+      if (nextShippingStatusMap[order.status] != status)
+        throw new BadRequestError('Can not update this status');
+      await Promise.all([
+        //update order status and save
+        (async () => {
+          order.status = status;
+          await queryRunner.manager.save(Order, order);
+        })(),
+        //create status tracking
+        this.createStatusTracking(order, userId, status, null, queryRunner),
+      ]);
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-    if (
-      status == ShippingStatusEnum.CANCELLED &&
-      ![
-        ShippingStatusEnum.WAIT_FOR_CONFIRMATION,
-        ShippingStatusEnum.TO_PAY,
-        ShippingStatusEnum.PREPARING_ORDER,
-      ].includes(order.status)
-    )
-      throw new BadRequestError(
-        `Can not cancel order due to current status ${order.status}`
-      );
-    if (nextShippingStatusMap[order.status] != status)
-      throw new BadRequestError('Can not update this status');
-    order.status = status;
-    await order.save();
+  }
 
-    //create status tracking
+  async brandCancelOrder(orderId: string, reason: any, userId: string) {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const order = await orderRepository.findOne({
+        where: { id: orderId },
+        relations: {
+          voucher: true,
+          parent: {
+            children: {
+              voucher: true,
+            },
+            voucher: true,
+          },
+          account: true,
+          orderDetails: { productClassification: true },
+        },
+      });
+      if (!order) {
+        throw new BadRequestError(`Order not found`);
+      }
+      if (
+        [
+          ShippingStatusEnum.WAIT_FOR_CONFIRMATION,
+          ShippingStatusEnum.TO_PAY,
+          ShippingStatusEnum.PREPARING_ORDER,
+        ].includes(order.status)
+      ) {
+        await Promise.all([
+          //update order status and save
+          (async () => {
+            order.status = ShippingStatusEnum.CANCELLED;
+            await queryRunner.manager.save(Order, order);
+          })(),
+          //refund voucher
+          this.refundVoucherInBothChildAndParentOrder(order, queryRunner),
+          //return back stock quantity
+          this.returnBackStockQuantity(order, queryRunner),
+          //create status tracking
+          this.createStatusTracking(
+            order,
+            userId,
+            ShippingStatusEnum.CANCELLED,
+            reason,
+            queryRunner
+          ),
+        ]);
+        await queryRunner.commitTransaction();
+        return;
+      }
+      throw new BadRequestError(
+        `Can not cancel due to current status ${order.status}`
+      );
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  private async createStatusTracking(
+    order: Order,
+    userId: string,
+    status: string,
+    reason: any,
+    queryRunner: QueryRunner
+  ) {
     let statusTracking = new StatusTracking();
     statusTracking.order = order;
     statusTracking.updatedBy = new Account();
     statusTracking.updatedBy.id = userId;
     statusTracking.status = status;
-    await statusTracking.save();
-  }
-
-  async brandCancelOrder(orderId: string, reason: any, userId: string) {
-    const order = await orderRepository.findOne({
-      where: { id: orderId },
-      relations: {
-        voucher: true,
-        parent: {
-          children: {
-            voucher: true,
-          },
-          voucher: true,
-        },
-        account: true,
-      },
-    });
-    if (!order) {
-      throw new BadRequestError(`Order not found`);
-    }
-    if (
-      [
-        ShippingStatusEnum.WAIT_FOR_CONFIRMATION,
-        ShippingStatusEnum.TO_PAY,
-        ShippingStatusEnum.PREPARING_ORDER,
-      ].includes(order.status)
-    ) {
-      order.status = ShippingStatusEnum.CANCELLED;
-      await order.save();
-
-      //refund voucher
-      await this.refundVoucherInBothChildAndParentOrder(order);
-      //return back stock quantity
-      await this.returnBackStockQuantity(order);
-
-      //create status tracking
-      let statusTracking = new StatusTracking();
-      statusTracking.order = order;
-      statusTracking.updatedBy = new Account();
-      statusTracking.updatedBy.id = userId;
-      statusTracking.status = ShippingStatusEnum.CANCELLED;
-      statusTracking.reason = reason;
-      await statusTracking.save();
-      return;
-    }
-    throw new BadRequestError(
-      `Can not cancel due to current status ${order.status}`
-    );
+    statusTracking.reason = reason;
+    await queryRunner.manager.save(StatusTracking, statusTracking);
   }
 
   async customerCancelOrder(orderId: string, reason: string, userId: string) {
-    const order = await orderRepository.findOne({
-      where: { id: orderId },
-      relations: {
-        voucher: true,
-        parent: {
-          children: {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const order = await orderRepository.findOne({
+        where: { id: orderId },
+        relations: {
+          voucher: true,
+          parent: {
+            children: {
+              voucher: true,
+            },
             voucher: true,
           },
-          voucher: true,
+          account: true,
+          orderDetails: { productClassification: true },
         },
-        account: true,
-      },
-    });
-    if (!order) {
-      throw new BadRequestError(`Order not found`);
+      });
+      if (!order) {
+        throw new BadRequestError(`Order not found`);
+      }
+      const cancelOrderRequest = await cancelOrderRequestRepository.findOne({
+        where: {
+          order: {
+            id: order.id,
+          },
+        },
+      });
+      if (cancelOrderRequest)
+        throw new BadRequestError(
+          'Only request cancel once. Can not request anymore'
+        );
+      if (
+        [
+          ShippingStatusEnum.WAIT_FOR_CONFIRMATION,
+          ShippingStatusEnum.TO_PAY,
+        ].includes(order.status)
+      ) {
+        await Promise.all([
+          //update order status and save
+          (async () => {
+            order.status = ShippingStatusEnum.CANCELLED;
+            await queryRunner.manager.save(Order, order);
+          })(),
+          //refund voucher
+          this.refundVoucherInBothChildAndParentOrder(order, queryRunner),
+          //return back stock quantity
+          this.returnBackStockQuantity(order, queryRunner),
+          //create status tracking
+          this.createStatusTracking(
+            order,
+            userId,
+            ShippingStatusEnum.CANCELLED,
+            reason,
+            queryRunner
+          ),
+        ]);
+      } else if (order.status == ShippingStatusEnum.PREPARING_ORDER) {
+        const cancelOrderRequest = new CancelOrderRequest();
+        cancelOrderRequest.reason = reason;
+        cancelOrderRequest.order = order;
+        await queryRunner.manager.save(CancelOrderRequest, cancelOrderRequest);
+      } else
+        throw new BadRequestError(
+          `Can not request cancel due to current status ${order.status}`
+        );
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-    const cancelOrderRequest = await cancelOrderRequestRepository.findOne({
-      where: {
-        order: {
-          id: order.id,
-        },
-      },
-    });
-    if (cancelOrderRequest)
-      throw new BadRequestError(
-        'Only request cancel once. Can not request anymore'
-      );
-    if (
-      [
-        ShippingStatusEnum.WAIT_FOR_CONFIRMATION,
-        ShippingStatusEnum.TO_PAY,
-      ].includes(order.status)
-    ) {
-      order.status = ShippingStatusEnum.CANCELLED;
-      await order.save();
-      //refund voucher
-      await this.refundVoucherInBothChildAndParentOrder(order);
-
-      //return back stock quantity
-      await this.returnBackStockQuantity(order);
-
-      //create status tracking
-      let statusTracking = new StatusTracking();
-      statusTracking.order = order;
-      statusTracking.updatedBy = new Account();
-      statusTracking.updatedBy.id = userId;
-      statusTracking.reason = reason;
-      statusTracking.status = ShippingStatusEnum.CANCELLED;
-      await statusTracking.save();
-    } else if (order.status == ShippingStatusEnum.PREPARING_ORDER) {
-      const cancelOrderRequest = new CancelOrderRequest();
-      cancelOrderRequest.reason = reason;
-      cancelOrderRequest.order = order;
-      await cancelOrderRequest.save();
-    } else
-      throw new BadRequestError(
-        `Can not request cancel due to current status ${order.status}`
-      );
   }
 
-  async refundVoucher(order: Order) {
+  async refundVoucher(order: Order, queryRunner: QueryRunner) {
     if (order.voucher) {
       const voucherWallet = await voucherWalletRepository.findOne({
         where: {
@@ -396,10 +483,10 @@ class OrderService extends BaseService<Order> {
       });
       if (voucherWallet) {
         if (order.voucher.visibility == VoucherVisibilityEnum.PUBLIC) {
-          await voucherWallet.remove();
+          await queryRunner.manager.remove(VoucherWallet, voucherWallet);
         } else if (order.voucher.visibility == VoucherVisibilityEnum.WALLET) {
           voucherWallet.status = VoucherWalletStatus.NOT_USED;
-          await voucherWallet.save();
+          await queryRunner.manager.save(VoucherWallet, voucherWallet);
         }
       }
     }
@@ -818,11 +905,12 @@ class OrderService extends BaseService<Order> {
       voucherService.calculateOrderPrice(parentOrder);
 
       //check its payment method and corresponding logic for each method
-      const statusTrackings = await this.updateStatusAndStockQuantityAccordingToPaymentMethod(
-        parentOrder,
-        accountId,
-        queryRunner
-      );
+      const statusTrackings =
+        await this.updateStatusAndStockQuantityAccordingToPaymentMethod(
+          parentOrder,
+          accountId,
+          queryRunner
+        );
 
       const createdParentOrder = await queryRunner.manager.save(
         Order,
@@ -932,7 +1020,7 @@ class OrderService extends BaseService<Order> {
       if (!wallet || wallet.balance < parentOrder.totalPrice) {
         const statusTrackings = this.updateOrderStatusBeforeCreation(
           parentOrder,
-          ShippingStatusEnum.TO_PAY,
+          ShippingStatusEnum.TO_PAY
         );
         return statusTrackings;
       }
@@ -940,7 +1028,7 @@ class OrderService extends BaseService<Order> {
       else {
         wallet.balance -= parentOrder.totalPrice;
         await queryRunner.manager.save(Wallet, wallet);
-        const statusTrackings =  this.updateOrderStatusBeforeCreation(
+        const statusTrackings = this.updateOrderStatusBeforeCreation(
           parentOrder,
           ShippingStatusEnum.WAIT_FOR_CONFIRMATION
         );
